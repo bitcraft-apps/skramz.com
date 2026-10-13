@@ -1,0 +1,29 @@
+# skramz API worker (Cloudflare Workers + Hono + D1, free tier only).
+# Real IDs live in GitHub secrets / `wrangler secret` — never in git.
+# See infra/d1.md for account/rotation notes. `.env` (gitignored) may export
+# CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN for local wrangler runs.
+
+name = "skramz-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# Staging rides the free workers.dev preview URL (no second environment).
+workers_dev = true
+
+# Serve local dev on :8787 per AGENTS.md (`task dev:api`).
+[dev]
+port = 8787
+
+
+[[d1_databases]]
+binding = "DB"
+database_name = "skramz"
+# Placeholder — replaced at deploy time via CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID
+# secrets. `wrangler dev` / `--local` use a local SQLite file regardless.
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+# Binding names become JS identifiers, so the bucket `skramz-media` is bound as `MEDIA`.
+binding = "MEDIA"
+bucket_name = "skramz-media"
