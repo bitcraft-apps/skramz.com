@@ -1,20 +1,14 @@
 version: '3'
 
-dotenv: ['.env', 'api/.env']
+dotenv: ['.env']
 
 tasks:
   dev:
-    deps: [dev:db, dev:api, dev:web]
-
-  dev:db:
-    cmd: docker compose up -d db
-    silent: true
+    deps: [dev:api, dev:web]
 
   dev:api:
     dir: api
-    cmd: go run ./cmd/server
-    env:
-      DATABASE_URL: '{{.DATABASE_URL | default "postgres://skramz:skramz@localhost:5432/skramz?sslmode=disable"}}'
+    cmd: pnpm dev
 
   dev:web:
     dir: web
@@ -22,30 +16,36 @@ tasks:
 
   build:api:
     dir: api
-    cmd: go build -o bin/server ./cmd/server
+    cmd: pnpm build
 
   build:web:
     dir: web
     cmd: pnpm build
 
   test:
-    deps: [test:api, test:web]
+    deps: [test:api, test:web, test:cli]
 
   test:api:
     dir: api
-    cmd: go test ./...
+    cmd: pnpm test
 
   test:web:
     dir: web
     cmd: pnpm vitest run
 
+  test:cli:
+    dir: cli-agent
+    cmd: go test ./...
+
   migrate:
-    desc: Apply migrations to local Postgres
-    cmds:
-      - until docker compose exec db pg_isready -U skramz; do sleep 1; done
-      - sh db/migrate.sh
-    env:
-      DATABASE_URL: '{{.DATABASE_URL | default "postgres://skramz:skramz@localhost:5432/skramz?sslmode=disable"}}'
+    desc: Apply D1 migrations locally
+    dir: api
+    cmd: pnpm exec wrangler d1 migrations apply DB --local
+
+  migrate:prod:
+    desc: Apply D1 migrations to production (explicit only)
+    dir: api
+    cmd: pnpm exec wrangler d1 migrations apply DB --remote
 
   scrape:
     desc: Run ingestion CLI (preview only unless confirmed with [Y/n])
