@@ -1,6 +1,6 @@
 # Skramz-Graph
 
-Centralized encyclopedia, embedded audio streaming hub, and visual relationship mapper for the Screamo/Skramz DIY music scene — skramz.com.
+Centralized encyclopedia, embedded audio streaming hub, and visual relationship mapper for the Screamo/Skramz DIY music scene — skramz.org.
 
 ## Stack ($0/month, all Cloudflare free tier)
 

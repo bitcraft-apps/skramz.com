@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ship skramz.com: a cost-optimized encyclopedia + embedded-audio hub + visual relationship mapper for the Screamo/Skramz DIY scene, built as independent agent-executable issues. This plan is Part 1 (architecture) + Part 2 (agent-ready GitHub Issues) from the Principal Architect brief, revised to the Full-Cloudflare decision: Pages + Workers + D1 + R2, no VPS, no Postgres, no Tunnel. Go survives only as the local ingestion CLI.
+Ship skramz.org: a cost-optimized encyclopedia + embedded-audio hub + visual relationship mapper for the Screamo/Skramz DIY scene, built as independent agent-executable issues. This plan is Part 1 (architecture) + Part 2 (agent-ready GitHub Issues) from the Principal Architect brief, revised to the Full-Cloudflare decision: Pages + Workers + D1 + R2, no VPS, no Postgres, no Tunnel. Go survives only as the local ingestion CLI.
 
 ## Success Criteria
 
@@ -30,7 +30,7 @@ Ship skramz.com: a cost-optimized encyclopedia + embedded-audio hub + visual rel
 - **D1 over Postgres.** Catalog rows are tiny and art lives in R2; SQLite supports `WITH RECURSIVE` natively. The one deferred feature is `pg_trgm` fuzzy search — replaced by `LIKE` on a normalized column, acceptable at this scale.
 - **Raw-SQL migrations in `api/migrations/` via wrangler; no ORM for schema.** Keeps every statement reviewable, portable, and the Postgres return path open.
 - **TEXT ids generated in app (`crypto.randomUUID()`).** No DB-side uuid functions in SQLite.
-- **One Worker, custom domain `api.skramz.com`; staging is the `workers.dev` preview URL.** No second environment to operate.
+- **One Worker, custom domain `api.skramz.org`; staging is the `workers.dev` preview URL.** No second environment to operate.
 - **CLI stays Go.** It runs on a laptop (zero hosting cost); rewriting a good local scraper for purity would be waste.
 
 ## Recommended Approach — Part 1: System Architecture & Data Flow
@@ -39,9 +39,9 @@ Ship skramz.com: a cost-optimized encyclopedia + embedded-audio hub + visual rel
 
 ```
 Browser ──HTTPS──▶ Cloudflare Pages (Next.js, static + SSR)
-   │                        │  NEXT_PUBLIC_API_URL=https://api.skramz.com
+   │                        │  NEXT_PUBLIC_API_URL=https://api.skramz.org
    │                        ▼
-   │               api.skramz.com (Worker custom domain)
+   │               api.skramz.org (Worker custom domain)
    │                        │  Hono + D1 binding `DB` + R2 binding (same account, no hop)
    │                        ▼
    └──────── R2 public hostname (cover art / photos, <img src>)
@@ -125,7 +125,7 @@ SELECT id, MIN(depth) AS depth FROM tree GROUP BY id LIMIT 500;
 
 Depth capped at 3–4 (`?2`, max 4); `LIMIT 500` bounds row-reads and the 10ms CPU budget.
 
-### API Contract (Hono Worker, JSON REST, base `https://api.skramz.com`)
+### API Contract (Hono Worker, JSON REST, base `https://api.skramz.org`)
 
 | Method | Endpoint | Purpose |
 |---|---|---|
@@ -171,13 +171,13 @@ Create in order; each issue is one agent's autonomous unit.
 - [ ] `task migrate` applies pending migrations to local D1 cleanly
 - [ ] `infra/d1.md` documents database name, bindings, and secret handling
 
-### [Worker custom domain api.skramz.com + staging URL]
+### [Worker custom domain api.skramz.org + staging URL]
 **Assignee Persona:** DevOps Agent
 **Dependencies:** D1/wrangler project issue
 **Context:** The Worker needs a stable public hostname for the frontend; staging rides the free `workers.dev` preview so there is no second environment.
-**Technical Implementation:** Deploy the skeleton Worker, attach custom domain `api.skramz.com` (zone route), confirm the `workers.dev` preview URL as the staging endpoint; store `CLOUDFLARE_API_TOKEN`/`ACCOUNT_ID` as GitHub secrets; record both URLs in `infra/domains.md`.
+**Technical Implementation:** Deploy the skeleton Worker, attach custom domain `api.skramz.org` (zone route), confirm the `workers.dev` preview URL as the staging endpoint; store `CLOUDFLARE_API_TOKEN`/`ACCOUNT_ID` as GitHub secrets; record both URLs in `infra/domains.md`.
 **Acceptance Criteria:**
-- [ ] `curl https://api.skramz.com/healthz` returns 200 from outside Cloudflare
+- [ ] `curl https://api.skramz.org/healthz` returns 200 from outside Cloudflare
 - [ ] Staging `workers.dev` URL serves the same build
 - [ ] `infra/domains.md` records prod + staging URLs
 
@@ -185,7 +185,7 @@ Create in order; each issue is one agent's autonomous unit.
 **Assignee Persona:** DevOps Agent (with Next.js Frontend Agent support)
 **Dependencies:** None (parallel with D1 issue)
 **Context:** The Next.js shell deploys to Pages free tier with preview URLs so frontend agents iterate safely.
-**Technical Implementation:** Create Cloudflare Pages project `skramz-web` bound to `web/`, build `pnpm build`, env `NEXT_PUBLIC_API_URL=https://api.skramz.com`; wire Pages GitHub integration for `main` + PR previews; keep standard App Router build output. Record project settings in `infra/pages.md`.
+**Technical Implementation:** Create Cloudflare Pages project `skramz-web` bound to `web/`, build `pnpm build`, env `NEXT_PUBLIC_API_URL=https://api.skramz.org`; wire Pages GitHub integration for `main` + PR previews; keep standard App Router build output. Record project settings in `infra/pages.md`.
 **Acceptance Criteria:**
 - [ ] Push to `main` deploys production; PRs get preview URLs
 - [ ] Preview build log shows `NEXT_PUBLIC_API_URL` resolved
@@ -346,7 +346,7 @@ Create in order; each issue is one agent's autonomous unit.
 
 ## Open Questions
 
-- Cloudflare account ownership for Pages/Worker/D1/R2 and the `skramz.com` zone? (Default: bitcraft-apps account.)
+- Cloudflare account ownership for Pages/Worker/D1/R2 and the `skramz.org` zone? (Default: bitcraft-apps account.)
 - Discogs API token availability for the CLI? (Default: MusicBrainz-only until token exists.)
 - Canonical audio embed providers (Bandcamp? YouTube?) for `media_links.provider` values? (Default: free-text provider + `embed_url`; enumerate later.)
 - Staging: `workers.dev` preview only, or a second custom subdomain later? (Default: preview URL only.)

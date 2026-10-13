@@ -1,4 +1,4 @@
-# skramz.com — agent conventions
+# skramz.org — agent conventions
 
 Monorepo: `web/` (Next.js) + `api/` (Hono Worker + D1) + `cli-agent/` (Go) + `db/` (seeds), orchestrated via Taskfile. Cost rule: Cloudflare free tier only; no VPS, no paid services.
 
