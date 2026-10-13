@@ -25,8 +25,8 @@ Ship skramz.com: a cost-optimized encyclopedia + embedded-audio hub + visual rel
 
 ## Key Decisions
 
-- **Go router: Fiber.** Matches brief's option, fastest agent velocity (built-in validation, error handling); stdlib remains an acceptable fallback inside Issue 5 if the agent justifies it.
-- **Graph lib: react-force-graph (2D) default, Sigma.js fallback.** react-force-graph has the simplest Next.js dynamic-import story and suffices for 60fps node rendering at scene scale; Issue 13 lets the agent switch to Sigma.js on measured jank with evidence.
+- **Go router: Fiber.** Matches brief's option, fastest agent velocity (built-in validation, error handling); stdlib remains an acceptable fallback inside the API-skeleton issue if the agent justifies it.
+- **Graph lib: react-force-graph (2D) default, Sigma.js fallback.** react-force-graph has the simplest Next.js dynamic-import story and suffices for 60fps node rendering at scene scale; the graph-component issue lets the agent switch to Sigma.js on measured jank with evidence.
 - **No graph DB.** Shared-member edges are a textbook join-table traversal; Recursive CTEs to depth 3–4 on indexed FKs satisfy the query load without operating a second database.
 - **Tunnel over open ports / reverse proxy.** Zero Trust Tunnel keeps a single egress-only connection from Hetzner; Pages hits the public Tunnel hostname. No firewall rules to manage.
 - **R2 for images only.** Covers bandwidth (the actual cost driver for cover art); audio stays embedded (Bandcamp/YouTube) to avoid licensing and egress liability.
@@ -318,7 +318,7 @@ Create in order; each issue is one agent's autonomous unit. Numbers below are cr
 ## Risks / Rollback
 
 - Tunnel misconfiguration blocks all API integration → mitigate by shipping Issues 1–3 first and verifying `curl` evidence before backend/frontend integration issues start.
-- MusicBrainz/Discogs rate limits or ToS friction → CLI already backs off; fallback is manual JSON seeding (Issue 15 path).
+- MusicBrainz/Discogs rate limits or ToS friction → CLI already backs off; fallback is manual JSON seeding (seed-data issue path).
 - Graph perf on large scenes → 500-node cap + depth clamp; Sigma.js fallback pre-approved.
 - Rollback: each epic merges independently; Pages instant-rollback + `db/migrate.sh` down-migrations cover retreat. No data-loss operations outside the `[Y/n]`-gated CLI.
 
