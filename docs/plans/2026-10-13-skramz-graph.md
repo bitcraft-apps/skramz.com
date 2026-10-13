@@ -354,5 +354,6 @@ Create in order; each issue is one agent's autonomous unit.
 
 ## Sources
 
+- [Hono](https://hono.dev/) — Web-Standards framework running on Workers, with bearer-auth middleware (inspected 2026-10-13)
 - [Workers limits](https://developers.cloudflare.com/workers/platform/limits/) — 100k req/day, 10ms CPU, 128MB (inspected 2026-10-13)
 - [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) — 5GB storage, 5M rows read / 100k written per day (via official-docs excerpts inspected 2026-10-13)
