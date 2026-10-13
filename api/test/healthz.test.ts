@@ -4,14 +4,12 @@ import app, { type D1Database, type D1PreparedStatement } from "../src/index";
 function stmt(value: unknown): D1PreparedStatement {
   if (value instanceof Error) {
     return {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       first: async <T,>(_column?: string): Promise<T | null> => {
         throw value;
       },
     };
   }
   return {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     first: async <T,>(_column?: string): Promise<T | null> =>
       value as T | null,
   };
@@ -19,7 +17,6 @@ function stmt(value: unknown): D1PreparedStatement {
 
 function stubDb(value: unknown): D1Database {
   return {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     prepare: (_query: string) => stmt(value),
   };
 }

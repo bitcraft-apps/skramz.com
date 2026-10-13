@@ -14,7 +14,6 @@ workers_dev = true
 [dev]
 port = 8787
 
-
 [[d1_databases]]
 binding = "DB"
 database_name = "skramz"

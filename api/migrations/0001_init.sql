@@ -3,6 +3,5 @@
 -- media_links) lands in the later D1-migrations issue; keep this portable
 -- SQLite with no Postgres-isms.
 CREATE TABLE IF NOT EXISTS _health (
-  id INTEGER PRIMARY KEY,
-  checked_at TEXT NOT NULL
+  id INTEGER PRIMARY KEY
 );
