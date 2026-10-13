@@ -25,12 +25,22 @@ jobs:
       cli: ${{ steps.filter.outputs.cli }}
       shared: ${{ steps.filter.outputs.shared }}
       docs: ${{ steps.filter.outputs.docs }}
+      web_scaffold: ${{ steps.scaffold.outputs.web }}
+      cli_scaffold: ${{ steps.scaffold.outputs.cli }}
     steps:
       - uses: actions/checkout@v5
       - id: filter
         uses: dorny/paths-filter@v3
         with:
           filters: .github/path-filters.yml
+      # web/ and cli-agent/ are placeholders until their scaffold issues land
+      # (web: #11, cli-agent: #9). `shared` paths (.env.example, Taskfile.yml)
+      # must not fail those jobs before there is anything to build; skip
+      # cleanly until the project file exists.
+      - id: scaffold
+        run: |
+          echo "web=$([ -f web/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "cli=$([ -f cli-agent/go.mod ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   api-ci:
     name: API CI
@@ -58,7 +68,7 @@ jobs:
   web-ci:
     name: Web CI
     needs: [changes]
-    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true'
+    if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.shared == 'true') && needs.changes.outputs.web_scaffold == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -81,7 +91,7 @@ jobs:
   cli-ci:
     name: CLI CI
     needs: [changes]
-    if: needs.changes.outputs.cli == 'true' || needs.changes.outputs.shared == 'true'
+    if: (needs.changes.outputs.cli == 'true' || needs.changes.outputs.shared == 'true') && needs.changes.outputs.cli_scaffold == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
