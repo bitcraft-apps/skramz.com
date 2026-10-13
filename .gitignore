@@ -1,0 +1,32 @@
+# Env
+.env
+.env.local
+
+# Go
+api/bin/
+cli-agent/bin/
+*.test
+coverage.out
+
+# Node
+node_modules/
+web/.next/
+web/out/
+web/dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Docker
+pgdata/
+
+# Wrangler / Cloudflare
+.wrangler/
+web/.wrangler/
+
+# pnpm
+.pnpm-store

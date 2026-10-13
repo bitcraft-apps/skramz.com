@@ -1,0 +1,17 @@
+api:
+  - 'api/**'
+web:
+  - 'web/**'
+cli:
+  - 'cli-agent/**'
+shared:
+  - 'db/**'
+  - 'docker-compose.yml'
+  - 'Taskfile.yml'
+  - '.env.example'
+ci:
+  - '.github/**'
+docs:
+  - 'docs/**'
+  - 'README.md'
+  - 'AGENTS.md'

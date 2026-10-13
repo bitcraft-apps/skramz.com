@@ -1,0 +1,14 @@
+{
+  "packages": {
+    "api": {
+      "component": "api",
+      "release-type": "simple"
+    },
+    "web": {
+      "component": "web",
+      "release-type": "simple"
+    }
+  },
+  "tag-separator": "/",
+  "sequential-calls": false
+}

@@ -1,0 +1,53 @@
+version: '3'
+
+dotenv: ['.env', 'api/.env']
+
+tasks:
+  dev:
+    deps: [dev:db, dev:api, dev:web]
+
+  dev:db:
+    cmd: docker compose up -d db
+    silent: true
+
+  dev:api:
+    dir: api
+    cmd: go run ./cmd/server
+    env:
+      DATABASE_URL: '{{.DATABASE_URL | default "postgres://skramz:skramz@localhost:5432/skramz?sslmode=disable"}}'
+
+  dev:web:
+    dir: web
+    cmd: pnpm dev
+
+  build:api:
+    dir: api
+    cmd: go build -o bin/server ./cmd/server
+
+  build:web:
+    dir: web
+    cmd: pnpm build
+
+  test:
+    deps: [test:api, test:web]
+
+  test:api:
+    dir: api
+    cmd: go test ./...
+
+  test:web:
+    dir: web
+    cmd: pnpm vitest run
+
+  migrate:
+    desc: Apply migrations to local Postgres
+    cmds:
+      - until docker compose exec db pg_isready -U skramz; do sleep 1; done
+      - sh db/migrate.sh
+    env:
+      DATABASE_URL: '{{.DATABASE_URL | default "postgres://skramz:skramz@localhost:5432/skramz?sslmode=disable"}}'
+
+  scrape:
+    desc: Run ingestion CLI (preview only unless confirmed with [Y/n])
+    dir: cli-agent
+    cmd: 'go run ./cmd/cli-agent scrape {{.CLI_ARGS}}'
