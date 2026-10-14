@@ -24,7 +24,7 @@ task migrate      # apply D1 migrations locally
 - Relationships via `band_members` join table + Recursive CTEs (SQLite `WITH RECURSIVE`). No graph DB.
 - CLI must push art to R2, print JSON preview, and require human `[Y/n]` before any API write. `--yes` is forbidden; non-TTY aborts.
 - Secrets (`INGESTION_TOKEN`, R2 keys) via `wrangler secret` / GitHub secrets — never in git.
-- Architecture decisions live in `docs/adr/` (numbered MADR records) — read the relevant ADR before changing its area. No other spec/design docs (`docs/specs/`, `.sf/`, root `DESIGN.md`); keep transient specs inline in chat or the PR body.
+- No spec/design-doc files in the repo (no `docs/specs/`, no `.sf/`) — keep specs inline in chat or the PR body.
 
 ## CI/CD
 
