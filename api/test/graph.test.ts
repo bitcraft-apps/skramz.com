@@ -109,6 +109,15 @@ describe("issue #7: GET /api/bands/:id/graph", () => {
     expect(ids).toEqual(new Set(["a", "b"]));
   });
 
+  it("defaults a missing/invalid depth to 3 and floors 0 to 1", async () => {
+    const def = (await (await app.request("/api/bands/a/graph", {}, ENV)).json()) as Graph;
+    expect(new Set(def.nodes.map((n) => n.id))).toEqual(new Set(["a", "b", "c"]));
+    const bad = (await (await app.request("/api/bands/a/graph?depth=nope", {}, ENV)).json()) as Graph;
+    expect(new Set(bad.nodes.map((n) => n.id))).toEqual(new Set(["a", "b", "c"]));
+    const zero = (await (await app.request("/api/bands/a/graph?depth=0", {}, ENV)).json()) as Graph;
+    expect(new Set(zero.nodes.map((n) => n.id))).toEqual(new Set(["a", "b"]));
+  });
+
   it("clamps depth > 4", async () => {
     // Linear chain of 7 bands: d0..d6, each adjacent pair sharing a member.
     db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("d0", "Chain Zero", "chain zero");
