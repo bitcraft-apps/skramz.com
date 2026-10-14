@@ -49,5 +49,6 @@
    automatic).
 4. `workers.dev` subdomain: `skramz-api.s-graczyk.workers.dev`.
 5. GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
-   `D1_DATABASE_ID`) still unset; no deploy workflow exists yet, so a
-   CI deploy is a later issue.
+   `D1_DATABASE_ID`) must be set for `.github/workflows/deploy-api.yml`
+   (push to `main` touching `api/**`, or manual dispatch) to deploy.
+   Check with `gh secret list --repo bitcraft-apps/skramz.com`.
