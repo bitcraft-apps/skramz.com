@@ -14,20 +14,36 @@ export type Bindings = {
   DB: D1Database;
 };
 
-const app = new Hono<{ Bindings: Bindings }>();
+function errMessage(err: unknown, fallback: string): string {
+  return err instanceof Error ? err.message : fallback;
+}
 
-// Deploy health: proves a live D1 round-trip (SELECT 1), not a static string.
-app.get("/healthz", async (c) => {
-  try {
-    const row = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
-    return c.json({ ok: true, db: row?.ok ?? null });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "D1 query failed";
-    return c.json({ error: { code: "d1_unavailable", message } }, 500);
-  }
-});
+export function createApp() {
+  const app = new Hono<{ Bindings: Bindings }>();
 
-// Uniform error shape for unknown routes: { "error": { "code", "message" } }.
-app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found" } }, 404));
+  // Deploy health: proves a live D1 round-trip (SELECT 1), not a static string.
+  app.get("/healthz", async (c) => {
+    try {
+      const row = await c.env.DB.prepare("SELECT 1 AS ok").first<{ ok: number }>();
+      return c.json({ ok: true, db: row?.ok ?? null });
+    } catch (err) {
+      const message = errMessage(err, "D1 query failed");
+      return c.json({ error: { code: "d1_unavailable", message } }, 500);
+    }
+  });
+
+  // Uniform error shape for unknown routes: { "error": { "code", "message" } }.
+  app.notFound((c) => c.json({ error: { code: "not_found", message: "Not found" } }, 404));
+
+  // Uniform error shape for thrown errors (Hono's default is plain-text 500).
+  app.onError((err, c) => {
+    const message = errMessage(err, "Internal server error");
+    return c.json({ error: { code: "internal", message } }, 500);
+  });
+
+  return app;
+}
+
+const app = createApp();
 
 export default app;
