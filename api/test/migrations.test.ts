@@ -120,4 +120,21 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
       db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r2", "b1", "Demo Tape", "7inch"),
     ).toThrow(/CHECK constraint failed/i);
   });
+
+  it("rejects a NULL release_type (NOT NULL since issue #21)", () => {
+    seed(db);
+    expect(() =>
+      db.prepare("INSERT INTO releases (id, band_id, title) VALUES (?, ?, ?)").run("r2", "b1", "Untyped Tape"),
+    ).toThrow(/NOT NULL constraint failed/i);
+    expect(() =>
+      db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r2", "b1", "Untyped Tape", null),
+    ).toThrow(/NOT NULL constraint failed/i);
+  });
+
+  it("keeps media_links children across the 0003 rebuild", () => {
+    seed(db);
+    db.prepare("INSERT INTO media_links (id, release_id, provider, url) VALUES (?, ?, ?, ?)").run("x1", "r1", "bandcamp", "https://example.com/r");
+    expect(db.prepare("SELECT release_type AS t FROM releases WHERE id = ?").get("r1")?.t).toBe("LP");
+    expect(db.prepare("SELECT COUNT(*) AS n FROM media_links").get()?.n).toBe(1);
+  });
 });
