@@ -71,12 +71,22 @@ export function escapeLike(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 }
 
-// Timing-safe string compare for the ingestion Bearer [REDACTED]
-export function tokensEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
+// Timing-safe string compare for the ingestion Bearer [REDACTED] Both sides
+// are hashed to a fixed-length SHA-256 digest before comparing, so rejection
+// cost does not depend on the presented token's length (no early length
+// return). Async: crypto.subtle is Workers-safe.
+const enc = new TextEncoder();
+
+export async function tokensEqual(a: string, b: string): Promise<boolean> {
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const xa = new Uint8Array(da);
+  const xb = new Uint8Array(db);
   let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  for (let i = 0; i < xa.length; i++) {
+    diff |= xa[i] ^ xb[i];
   }
   return diff === 0;
 }
@@ -112,7 +122,7 @@ export async function requireAuth(c: AppContext): Promise<Response | null> {
   const header = c.req.header("Authorization") ?? "";
   const prefix = "Bearer ";
   const presented = header.startsWith(prefix) ? header.slice(prefix.length) : "";
-  if (!presented || !tokensEqual(presented, token)) {
+  if (!presented || !(await tokensEqual(presented, token))) {
     return c.json(
       { error: { code: "unauthorized", message: "Valid ingestion token required" } },
       401,
