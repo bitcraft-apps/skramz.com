@@ -54,6 +54,13 @@ export function registerSearch(app: App): void {
     if (!q.trim()) {
       return c.json({ error: { code: "missing_query", message: "Query param q is required" } }, 400);
     }
+    // The cursor is bound to the exact trimmed query string (not just its
+    // normalized form): the releases LIKE pattern is built from the raw
+    // query while bands/members use the normalized form, so a
+    // case/punctuation variant of q would share a normalized cursor yet
+    // match a different release set across pages (duplicates/skips).
+    // Binding the raw string keeps every page's patterns identical.
+    const rawQ = q.trim();
     const normQ = normalizeName(q);
     const rawCursor = c.req.query("cursor") ?? "";
     let pos: SearchCursor | null = null;
@@ -62,7 +69,7 @@ export function registerSearch(app: App): void {
       if (!pos) {
         return c.json({ error: { code: "invalid_cursor", message: "Cursor is malformed or tampered" } }, 400);
       }
-      if (pos.q !== normQ) {
+      if (pos.q !== rawQ) {
         return c.json({ error: { code: "invalid_cursor", message: "Cursor does not match query q" } }, 400);
       }
     }
@@ -99,7 +106,7 @@ export function registerSearch(app: App): void {
     );
     const release = await fetchPage<{ id: string; name: string; band_id: string }>(
       `SELECT id, title AS name, band_id FROM releases WHERE title LIKE (?) ESCAPE '\\'`,
-      `%${escapeLike(q.trim())}%`,
+      `%${escapeLike(rawQ)}%`,
       pos?.release ?? null,
     );
     const hits = [
@@ -111,7 +118,7 @@ export function registerSearch(app: App): void {
     // non-empty whenever hasMore is true — no extra guard needed.
     const hasMore = band.overflow || member.overflow || release.overflow;
     const nextCursor = hasMore
-      ? encodeCursor({ v: 1, q: normQ, band: band.last, member: member.last, release: release.last })
+      ? encodeCursor({ v: 1, q: rawQ, band: band.last, member: member.last, release: release.last })
       : null;
     return c.json({ hits, nextCursor });
   });

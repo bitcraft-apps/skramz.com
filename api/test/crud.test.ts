@@ -345,6 +345,23 @@ describe("issue #29: /api/search cross-type cursor", () => {
     expect(res.status).toBe(400);
     expect((await res.json() as { error: { code: string } }).error.code).toBe("invalid_cursor");
   });
+
+  it("cursor is bound to the exact query string: case-variant reuse is rejected", async () => {
+    // Same letters but different raw q: the releases LIKE pattern is built
+    // from the raw query, so reusing the cursor would page a different
+    // release set (duplicates/skips). The cursor must not be accepted.
+    db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b9", "Saetia Tribute", "saetia tribute");
+    const withCursor = await search("q=saetia&limit=1");
+    expect(withCursor.status).toBe(200);
+    expect(withCursor.json.nextCursor).not.toBeNull();
+    const res = await app.request(
+      `/api/search?q=SAETIA&limit=1&cursor=${encodeURIComponent(withCursor.json.nextCursor as string)}`,
+      {},
+      ENV,
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: { code: string } }).error.code).toBe("invalid_cursor");
+  });
 });
 
 describe("issue #8: PATCH writes", () => {
