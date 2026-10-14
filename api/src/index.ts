@@ -25,6 +25,16 @@ const RELEASE_TYPES = ["LP", "EP", "Split", "Demo", "Single", "Compilation"] as 
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
 
+const DEFAULT_GRAPH_DEPTH = 3;
+const MAX_GRAPH_DEPTH = 4;
+const GRAPH_LIMIT = 500;
+
+function parseDepth(raw: string | undefined): number {
+  const n = Number.parseInt(raw ?? "", 10);
+  if (!Number.isFinite(n)) return DEFAULT_GRAPH_DEPTH;
+  return Math.min(Math.max(n, 1), MAX_GRAPH_DEPTH);
+}
+
 function errMessage(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
 }
@@ -162,6 +172,64 @@ export function createApp() {
       releases: releases.results,
       media_links: media.results,
     });
+  });
+
+  // GET /api/bands/:id/graph?depth=3 — multi-hop relationship tree as
+  // { nodes: [{id,type,name}], edges: [{from,to,via}] }. One Recursive CTE
+  // (SQLite, no graph DB): parameterized depth clamped to 1..4, path-string
+  // cycle guard, LIMIT 500 to bound row-reads and the 10ms CPU budget.
+  app.get("/api/bands/:id/graph", async (c) => {
+    const id = c.req.param("id");
+    const depth = parseDepth(c.req.query("depth"));
+    const root = await c.env.DB.prepare("SELECT id, name FROM bands WHERE id = ?")
+      .bind(id)
+      .first<{ id: string; name: string }>();
+    if (!root) {
+      return c.json({ error: { code: "not_found", message: "Band not found" } }, 404);
+    }
+    const edgeRows = await c.env.DB.prepare(
+      `WITH RECURSIVE tree(id, depth, path, from_id, via) AS (
+        SELECT bm2.band_id, 1, '/' || b.id || '/' || bm2.band_id || '/', b.id, m.name
+        FROM bands b
+        JOIN band_members bm1 ON bm1.band_id = b.id
+        JOIN members m ON m.id = bm1.member_id
+        JOIN band_members bm2 ON bm2.member_id = m.id AND bm2.band_id <> b.id
+        WHERE b.id = ?1
+        UNION
+        SELECT bm2.band_id, t.depth + 1, t.path || bm2.band_id || '/', t.id, m.name
+        FROM tree t
+        JOIN band_members bm1 ON bm1.band_id = t.id
+        JOIN band_members bm2 ON bm2.member_id = bm1.member_id
+          AND instr(t.path, '/' || bm2.band_id || '/') = 0
+        JOIN members m ON m.id = bm1.member_id
+        WHERE t.depth < ?2
+      )
+      SELECT from_id, id AS to_id, via, MIN(depth) AS depth
+      FROM tree GROUP BY from_id, id, via LIMIT ${GRAPH_LIMIT}`,
+    )
+      .bind(id, depth)
+      .all<{ from_id: string; to_id: string; via: string; depth: number }>();
+    const depthById = new Map<string, number>([[root.id, 0]]);
+    for (const row of edgeRows.results) {
+      const prev = depthById.get(row.to_id);
+      if (prev === undefined || row.depth < prev) depthById.set(row.to_id, row.depth);
+    }
+    const ids = [...depthById.keys()];
+    const placeholders = ids.map(() => "?").join(", ");
+    const nameRows = await c.env.DB.prepare(`SELECT id, name FROM bands WHERE id IN (${placeholders})`)
+      .bind(...ids)
+      .all<{ id: string; name: string }>();
+    const nameById = new Map(nameRows.results.map((r) => [r.id, r.name]));
+    const nodes = [...depthById.entries()]
+      .sort((a, b) => a[1] - b[1] || (a[0] < b[0] ? -1 : 1))
+      .filter(([bandId]) => nameById.has(bandId))
+      .map(([bandId]) => ({ id: bandId, type: "band", name: nameById.get(bandId) as string }));
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    const edges = edgeRows.results
+      .filter((r) => nodeIds.has(r.from_id) && nodeIds.has(r.to_id))
+      .map((r) => ({ from: r.from_id, to: r.to_id, via: r.via }))
+      .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : a.to > b.to ? 1 : a.via < b.via ? -1 : 1));
+    return c.json({ nodes, edges });
   });
 
   // GET /api/members/:id — member + band history.
