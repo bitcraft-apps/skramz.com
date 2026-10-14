@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
-import { publicWriteError } from "../src/lib/http";
+import { publicWriteError, tokensEqual } from "../src/lib/http";
 
 // Real-SQL coverage for issue #8: the actual api/migrations/*.sql files are
 // applied to node:sqlite (same engine D1 uses locally) and the Hono app talks
@@ -454,5 +454,44 @@ describe("issue #36: no engine text leaks on any failure path", () => {
   it("unknown routes return the 404 envelope", async () => {
     const res = await app.request("/api/does-not-exist", {}, ENV);
     await expectSanitized(res, 404, "not_found");
+  });
+});
+
+describe("issue #38: length-independent token compare", () => {
+  it("tokensEqual accepts equal tokens", async () => {
+    await expect(tokensEqual(TOKEN, TOKEN)).resolves.toBe(true);
+    await expect(tokensEqual("", "")).resolves.toBe(true);
+    await expect(tokensEqual("tøst-íngestion-tøken", "tøst-íngestion-tøken")).resolves.toBe(true);
+  });
+
+  it("tokensEqual rejects mismatches of any length, empty, and unicode", async () => {
+    await expect(tokensEqual("wrong-ingestion-token!", TOKEN)).resolves.toBe(false);
+    await expect(tokensEqual("x", TOKEN)).resolves.toBe(false);
+    await expect(tokensEqual("", TOKEN)).resolves.toBe(false);
+    await expect(tokensEqual("tøst-íngestion-tøken", TOKEN)).resolves.toBe(false);
+  });
+
+  it("single-char token returns the 401 envelope", async () => {
+    const res = await app.request(
+      "/api/bands",
+      { method: "POST", headers: { Authorization: "Bearer x" }, body: JSON.stringify({ name: "X" }) },
+      ENV,
+    );
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      error: { code: "unauthorized", message: "Valid ingestion token required" },
+    });
+  });
+
+  it("unset INGESTION_TOKEN returns the 500 envelope", async () => {
+    const res = await app.request(
+      "/api/bands",
+      { method: "POST", headers: { ...auth }, body: JSON.stringify({ name: "X" }) },
+      { DB: ENV.DB, INGESTION_TOKEN: "" },
+    );
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: { code: "server_misconfigured", message: "Ingestion token is not configured" },
+    });
   });
 });
