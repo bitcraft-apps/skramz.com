@@ -31,7 +31,7 @@ export function createApp(): App {
   app.onError((err, c) => {
     console.error("Internal server error", err);
     const pub = publicInternalError();
-    return c.json({ error: { code: pub.code, message: pub.message } }, 500);
+    return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
   });
 
   return app;
