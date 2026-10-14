@@ -10,6 +10,13 @@ compatibility_date = "2026-10-01"
 # Staging rides the free workers.dev preview URL (no second environment).
 workers_dev = true
 
+# Production: api.skramz.org on the skramz.org zone (Cloudflare Registrar,
+# bought 2026-10-13). Deploy creates the DNS record automatically; the zone
+# must be in the same account. See infra/domains.md.
+routes = [
+  { pattern = "api.skramz.org", custom_domain = true },
+]
+
 # Serve local dev on :8787 per AGENTS.md (`task dev:api`).
 [dev]
 port = 8787
