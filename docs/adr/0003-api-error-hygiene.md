@@ -28,3 +28,11 @@ dashboard rule on `/api/*` (no code). No CORS headers (safe default).
 Clients can only match on stable codes, never engine substrings. Regression
 cover lives in `api/test/crud.test.ts` (issue-#36 block). New failure modes
 must add a mapping + test, not a new shape.
+
+## Deployed rate-limit rule (2026-10-14)
+
+Dashboard only, no code (`rg -i 'rate.?limit|throttl|429'` over `api/src`,
+`api/test`, `api/migrations`, `api/wrangler.toml` returns zero matches).
+Security → Rate limiting rules on zone `skramz.org`, rule `api-burst-guard`:
+`(http.request.uri.path wildcard r"/api/*")`, per-IP, 100 requests / 10 s,
+block with 429 for 60 s. Rule ID: _<paste from dashboard>_.
