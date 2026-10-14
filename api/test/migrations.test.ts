@@ -122,6 +122,10 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
 
   it("rejects duplicate band_members in every NULL combination (issue #20)", () => {
     seed(db);
+    // Non-NULL role and year (seed row is bm1 = b1/m1/vocals/1997)
+    expect(() =>
+      db.prepare("INSERT INTO band_members (id, band_id, member_id, role, joined_year) VALUES (?, ?, ?, ?, ?)").run("bm-full-2", "b1", "m1", "vocals", 1997),
+    ).toThrow(/UNIQUE constraint failed/i);
     // NULL role, non-NULL year
     db.prepare("INSERT INTO band_members (id, band_id, member_id, joined_year) VALUES (?, ?, ?, ?)").run("bm-ny-1", "b1", "m1", 2000);
     expect(() =>
