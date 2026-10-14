@@ -2,17 +2,24 @@ import { describe, expect, it } from "vitest";
 import app, { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
 
 function stmt(value: unknown): D1PreparedStatement {
-  if (value instanceof Error) {
-    return {
-      first: async <T,>(_column?: string): Promise<T | null> => {
-        throw value;
-      },
-    };
-  }
-  return {
-    first: async <T,>(_column?: string): Promise<T | null> =>
-      value as T | null,
+  const s: D1PreparedStatement = {
+    bind(..._values: unknown[]) {
+      return s;
+    },
+    first: async <T,>(_column?: string): Promise<T | null> => {
+      if (value instanceof Error) throw value;
+      return value as T | null;
+    },
+    all: async <T,>(): Promise<{ results: T[] }> => {
+      if (value instanceof Error) throw value;
+      return { results: [] };
+    },
+    run: async (): Promise<unknown> => {
+      if (value instanceof Error) throw value;
+      return {};
+    },
   };
+  return s;
 }
 
 function stubDb(value: unknown): D1Database {
