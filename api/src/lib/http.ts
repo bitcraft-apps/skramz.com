@@ -20,8 +20,39 @@ export function parseDepth(raw: string | undefined): number {
   return Math.min(Math.max(n, 1), MAX_GRAPH_DEPTH);
 }
 
-export function errMessage(err: unknown, fallback: string): string {
-  return err instanceof Error ? err.message : fallback;
+// Map raw SQLite/D1 engine errors to stable public responses.
+// Never returns engine text; callers log the raw error server-side.
+export function publicWriteError(
+  err: unknown,
+  op: "insert" | "update",
+): { status: 409 | 422; code: string; message: string } {
+  console.error(op === "insert" ? "Insert failed" : "Update failed", err);
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  if (/unique constraint/i.test(msg)) {
+    return { status: 409, code: "conflict", message: "Resource already exists" };
+  }
+  if (/check constraint/i.test(msg)) {
+    return { status: 422, code: "invalid", message: "Value violates a database check" };
+  }
+  if (/foreign key/i.test(msg)) {
+    return { status: 422, code: "invalid", message: "Referenced record does not exist" };
+  }
+  if (/not null/i.test(msg)) {
+    return { status: 422, code: "invalid", message: "A required field is missing" };
+  }
+  return {
+    status: 422,
+    code: "invalid",
+    message: op === "insert" ? "Insert failed" : "Update failed",
+  };
+}
+
+export function publicInternalError(): { status: 500; code: string; message: string } {
+  return { status: 500, code: "internal", message: "Internal server error" };
+}
+
+export function publicD1Unavailable(): { status: 500; code: string; message: string } {
+  return { status: 500, code: "d1_unavailable", message: "D1 unavailable" };
 }
 
 // Lowercase, de-punctuated search target for `name_norm` (LIKE-search target

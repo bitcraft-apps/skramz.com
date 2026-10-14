@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { errMessage, normalizeName, readBody, requireAuth } from "../lib/http";
+import { normalizeName, publicWriteError, readBody, requireAuth } from "../lib/http";
 
 export function registerMembers(app: App): void {
   // GET /api/members/:id — member + band history.
@@ -38,7 +38,8 @@ export function registerMembers(app: App): void {
         .bind(row.id, row.name, row.name_norm, row.bio)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Insert failed") } }, 422);
+      const pub = publicWriteError(err, "insert");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     return c.json({ data: row }, 201);
   });
@@ -73,7 +74,8 @@ export function registerMembers(app: App): void {
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Update failed") } }, 422);
+      const pub = publicWriteError(err, "update");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     const updated = await c.env.DB.prepare("SELECT * FROM members WHERE id = ?").bind(id).first();
     return c.json({ data: updated });

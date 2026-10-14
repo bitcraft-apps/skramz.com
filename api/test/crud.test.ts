@@ -283,3 +283,48 @@ describe("issue #8: PATCH writes", () => {
     expect(res.status).toBe(422);
   });
 });
+
+describe("sanitized DB errors", () => {
+  it("duplicate band name returns 409 conflict without engine text", async () => {
+    const res = await app.request(
+      "/api/bands",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Saetia" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(409);
+    const text = await res.text();
+    expect(text).not.toMatch(/unique|check constraint|sqlite|d1_/i);
+    expect(JSON.parse(text)).toEqual({
+      error: { code: "conflict", message: "Resource already exists" },
+    });
+  });
+
+  it("foreign-key violation returns public 422 without engine text", async () => {
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "missing-band", title: "Ghost" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+    const text = await res.text();
+    expect(text).not.toMatch(/unique|check constraint|sqlite|d1_/i);
+    expect(JSON.parse(text)).toEqual({
+      error: { code: "invalid", message: "Referenced record does not exist" },
+    });
+  });
+
+  it("CHECK mapper returns a public message without engine text", async () => {
+    const { publicWriteError } = await import("../src/lib/http");
+    const pub = publicWriteError(new Error("CHECK constraint failed: releases"), "insert");
+    expect(pub).toEqual({ status: 422, code: "invalid", message: "Value violates a database check" });
+    expect(JSON.stringify(pub)).not.toMatch(/unique|check constraint|sqlite|d1_/i);
+  });
+});

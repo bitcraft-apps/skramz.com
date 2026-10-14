@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { Bindings, D1Database, D1PreparedStatement } from "./lib/db";
-import { errMessage } from "./lib/http";
+import { publicInternalError } from "./lib/http";
 import type { App } from "./lib/http";
 import { registerBands } from "./routes/bands";
 import { registerHealth } from "./routes/health";
@@ -29,8 +29,9 @@ export function createApp(): App {
 
   // Uniform error shape for thrown errors (Hono's default is plain-text 500).
   app.onError((err, c) => {
-    const message = errMessage(err, "Internal server error");
-    return c.json({ error: { code: "internal", message } }, 500);
+    console.error("Internal server error", err);
+    const pub = publicInternalError();
+    return c.json({ error: { code: pub.code, message: pub.message } }, 500);
   });
 
   return app;
