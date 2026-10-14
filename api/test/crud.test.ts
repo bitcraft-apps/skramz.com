@@ -284,6 +284,69 @@ describe("issue #8: reads + paginated search", () => {
   });
 });
 
+describe("issue #29: /api/search cross-type cursor", () => {
+  type Hit = { type: string; id: string; name: string };
+  type Page = { hits: Hit[]; nextCursor: string | null };
+  async function search(qs: string): Promise<{ status: number; json: Page & { error?: { code: string } } }> {
+    const res = await app.request(`/api/search?${qs}`, {}, ENV);
+    return { status: res.status, json: (await res.json()) as Page & { error?: { code: string } } };
+  }
+
+  it("exact-limit terminal page returns nextCursor null", async () => {
+    db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b9", "Saetia Tribute", "saetia tribute");
+    // limit=2 with exactly 2 matching bands, 0 members, 1 release: no table overflows.
+    const { status, json } = await search("q=saetia&limit=2");
+    expect(status).toBe(200);
+    expect(json.hits.filter((h) => h.type === "band")).toHaveLength(2);
+    expect(json.nextCursor).toBeNull();
+  });
+
+  it("stable multi-page pagination has no duplicates or skips", async () => {
+    for (const [id, name, norm] of [
+      ["b3", "Saetia Kid", "saetia kid"],
+      ["b4", "Saetia Youth", "saetia youth"],
+      ["b5", "Saetia End", "saetia end"],
+    ] as const) {
+      db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run(id, name, norm);
+    }
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let i = 0; i < 5; i++) {
+      const { status, json } = await search(`q=saetia&limit=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
+      expect(status).toBe(200);
+      for (const h of json.hits.filter((h) => h.type === "band")) {
+        expect(seen).not.toContain(`${h.type}:${h.id}`);
+        seen.push(`${h.type}:${h.id}`);
+      }
+      cursor = json.nextCursor;
+      if (!cursor) break;
+    }
+    expect(seen).toEqual(["band:b1", "band:b3", "band:b4", "band:b5"]);
+    expect(cursor).toBeNull();
+  });
+
+  it("malformed cursor is rejected with 400 invalid_cursor", async () => {
+    const res = await app.request("/api/search?q=saetia&cursor=not-a-cursor", {}, ENV);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: { code: "invalid_cursor", message: expect.any(String) } });
+  });
+
+  it("cursor bound to a different q is rejected with 400", async () => {
+    // Seed a second match so page 1 overflows and emits a cursor.
+    db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b9", "Saetia Tribute", "saetia tribute");
+    const withCursor = await search("q=saetia&limit=1");
+    expect(withCursor.status).toBe(200);
+    expect(withCursor.json.nextCursor).not.toBeNull();
+    const res = await app.request(
+      `/api/search?q=orchid&cursor=${encodeURIComponent(withCursor.json.nextCursor as string)}`,
+      {},
+      ENV,
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json() as { error: { code: string } }).error.code).toBe("invalid_cursor");
+  });
+});
+
 describe("issue #8: PATCH writes", () => {
   it("PATCH /api/bands/:id updates with a valid token", async () => {
     const res = await app.request(
