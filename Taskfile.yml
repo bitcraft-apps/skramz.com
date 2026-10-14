@@ -47,6 +47,11 @@ tasks:
     dir: api
     cmd: pnpm exec wrangler d1 migrations apply DB --remote
 
+  verify:remote-cascade:
+    desc: Verify FK/ON DELETE CASCADE on remote D1 (issue #23; needs Cloudflare auth env)
+    dir: api
+    cmd: ./scripts/verify-fk-cascade.sh --remote
+
   scrape:
     desc: Run ingestion CLI (preview only unless confirmed with [Y/n])
     dir: cli-agent
