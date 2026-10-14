@@ -1,8 +1,7 @@
-import type { Hono } from "hono";
-import type { Bindings } from "../lib/db";
+import type { App } from "../lib/http";
 import { errMessage, normalizeName, readBody, requireAuth } from "../lib/http";
 
-export function registerMembers(app: Hono<{ Bindings: Bindings }>): void {
+export function registerMembers(app: App): void {
   // GET /api/members/:id — member + band history.
   app.get("/api/members/:id", async (c) => {
     const id = c.req.param("id");

@@ -1,8 +1,7 @@
-import type { Hono } from "hono";
-import type { Bindings } from "../lib/db";
+import type { App } from "../lib/http";
 import { errMessage } from "../lib/http";
 
-export function registerHealth(app: Hono<{ Bindings: Bindings }>): void {
+export function registerHealth(app: App): void {
   // Deploy health: proves a live D1 round-trip (SELECT 1), not a static string.
   app.get("/healthz", async (c) => {
     try {

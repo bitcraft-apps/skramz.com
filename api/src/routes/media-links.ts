@@ -1,5 +1,4 @@
-import type { Hono } from "hono";
-import type { Bindings } from "../lib/db";
+import type { App } from "../lib/http";
 import { errMessage, readBody, requireAuth } from "../lib/http";
 
 function singleParentViolation(releaseId: unknown, bandId: unknown): boolean {
@@ -9,7 +8,7 @@ function singleParentViolation(releaseId: unknown, bandId: unknown): boolean {
   return hasRelease === hasBand;
 }
 
-export function registerMediaLinks(app: Hono<{ Bindings: Bindings }>): void {
+export function registerMediaLinks(app: App): void {
   // POST /api/media-links
   app.post("/api/media-links", async (c) => {
     const denied = await requireAuth(c);

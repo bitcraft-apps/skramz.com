@@ -1,5 +1,4 @@
-import type { Hono } from "hono";
-import type { Bindings } from "../lib/db";
+import type { App } from "../lib/http";
 import {
   GRAPH_LIMIT,
   errMessage,
@@ -11,7 +10,7 @@ import {
   requireAuth,
 } from "../lib/http";
 
-export function registerBands(app: Hono<{ Bindings: Bindings }>): void {
+export function registerBands(app: App): void {
   // GET /api/bands?search=&limit=&cursor= — LIKE on name_norm (idx_bands_norm).
   // Cursor is the last-seen row id (`WHERE id > ? ORDER BY id`).
   app.get("/api/bands", async (c) => {

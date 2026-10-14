@@ -1,5 +1,7 @@
-import type { Context } from "hono";
+import type { Context, Hono } from "hono";
 import type { Bindings } from "./db";
+
+export type App = Hono<{ Bindings: Bindings }>;
 
 type AppContext = Context<{ Bindings: Bindings }>;
 

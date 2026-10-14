@@ -1,5 +1,4 @@
-import type { Hono } from "hono";
-import type { Bindings } from "../lib/db";
+import type { App } from "../lib/http";
 import { RELEASE_TYPES, errMessage, readBody, requireAuth } from "../lib/http";
 
 function invalidReleaseType(value: unknown): boolean {
@@ -9,7 +8,7 @@ function invalidReleaseType(value: unknown): boolean {
   return !(typeof value === "string" && (RELEASE_TYPES as readonly string[]).includes(value));
 }
 
-export function registerReleases(app: Hono<{ Bindings: Bindings }>): void {
+export function registerReleases(app: App): void {
   // GET /api/releases/:id — release + media_links.
   app.get("/api/releases/:id", async (c) => {
     const id = c.req.param("id");

@@ -1,8 +1,7 @@
-import type { Hono } from "hono";
-import type { Bindings } from "../lib/db";
+import type { App } from "../lib/http";
 import { MAX_LIMIT, escapeLike, normalizeName, parseLimit } from "../lib/http";
 
-export function registerSearch(app: Hono<{ Bindings: Bindings }>): void {
+export function registerSearch(app: App): void {
   // GET /api/search?q=&limit=&cursor= — unified band/member/release hits.
   // Flat hits paginated by limit; cursor is a last-seen id applied per table.
   app.get("/api/search", async (c) => {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { Bindings, D1Database, D1PreparedStatement } from "./lib/db";
 import { errMessage } from "./lib/http";
+import type { App } from "./lib/http";
 import { registerBands } from "./routes/bands";
 import { registerHealth } from "./routes/health";
 import { registerMediaLinks } from "./routes/media-links";
@@ -9,8 +10,11 @@ import { registerReleases } from "./routes/releases";
 import { registerSearch } from "./routes/search";
 
 export type { Bindings, D1Database, D1PreparedStatement };
+export type { App } from "./lib/http";
+// Compat: normalizeName was exported from the pre-split module.
+export { normalizeName } from "./lib/http";
 
-export function createApp() {
+export function createApp(): App {
   const app = new Hono<{ Bindings: Bindings }>();
 
   registerHealth(app);
