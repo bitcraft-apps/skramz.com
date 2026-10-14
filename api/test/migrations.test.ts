@@ -41,13 +41,14 @@ function seed(db: Db) {
   db.prepare("INSERT INTO releases (id, band_id, title, release_type, release_year) VALUES (?, ?, ?, ?, ?)").run("r1", "b1", "Saetia", "LP", 1998);
 }
 
-const SIX_INDEXES = [
+const EXPECTED_INDEXES = [
   "idx_band_members_band",
   "idx_band_members_member",
   "idx_bands_norm",
   "idx_media_band",
   "idx_media_release",
   "idx_releases_band",
+  "ux_band_members_nullsafe_dedupe",
 ];
 
 describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like DB)", () => {
@@ -67,12 +68,12 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
     expect(names).toEqual(expect.arrayContaining(["band_members", "bands", "media_links", "members", "releases"]));
   });
 
-  it("has exactly the six named indexes", () => {
+  it("has exactly the expected named indexes", () => {
     const names = db
-      .prepare("SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name")
+      .prepare("SELECT name FROM sqlite_master WHERE type='index' AND (name LIKE 'idx_%' OR name LIKE 'ux_%') ORDER BY name")
       .all()
       .map((r) => r.name);
-    expect(names).toEqual(SIX_INDEXES);
+    expect(names).toEqual(EXPECTED_INDEXES);
   });
 
   it("rejects a double-parent media_links insert", () => {
@@ -112,6 +113,42 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
     expect(() =>
       db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b2", "SAETIA", "saetia2"),
     ).toThrow(/UNIQUE constraint failed/i);
+  });
+
+  it("rejects duplicate band_members with NULL role/joined_year (issue #20)", () => {
+    seed(db);
+    db.prepare("INSERT INTO band_members (id, band_id, member_id) VALUES (?, ?, ?)").run("bm-null-1", "b1", "m1");
+    expect(() =>
+      db.prepare("INSERT INTO band_members (id, band_id, member_id) VALUES (?, ?, ?)").run("bm-null-2", "b1", "m1"),
+    ).toThrow(/UNIQUE constraint failed/i);
+  });
+
+  it("rejects duplicate band_members in every NULL combination (issue #20)", () => {
+    seed(db);
+    // Non-NULL role and year (seed row is bm1 = b1/m1/vocals/1997)
+    expect(() =>
+      db.prepare("INSERT INTO band_members (id, band_id, member_id, role, joined_year) VALUES (?, ?, ?, ?, ?)").run("bm-full-2", "b1", "m1", "vocals", 1997),
+    ).toThrow(/UNIQUE constraint failed/i);
+    // NULL role, non-NULL year
+    db.prepare("INSERT INTO band_members (id, band_id, member_id, joined_year) VALUES (?, ?, ?, ?)").run("bm-ny-1", "b1", "m1", 2000);
+    expect(() =>
+      db.prepare("INSERT INTO band_members (id, band_id, member_id, joined_year) VALUES (?, ?, ?, ?)").run("bm-ny-2", "b1", "m1", 2000),
+    ).toThrow(/UNIQUE constraint failed/i);
+    // Non-NULL role, NULL year
+    db.prepare("INSERT INTO members (id, name, name_norm) VALUES (?, ?, ?)").run("m2", "Jane Doe", "jane doe");
+    db.prepare("INSERT INTO band_members (id, band_id, member_id, role) VALUES (?, ?, ?, ?)").run("bm-nr-1", "b1", "m2", "drums");
+    expect(() =>
+      db.prepare("INSERT INTO band_members (id, band_id, member_id, role) VALUES (?, ?, ?, ?)").run("bm-nr-2", "b1", "m2", "drums"),
+    ).toThrow(/UNIQUE constraint failed/i);
+  });
+
+  it("still allows distinct band_members rows (no false dedupe)", () => {
+    seed(db);
+    // Existing seed row is (b1, m1, 'vocals', 1997); these differ in one column each.
+    db.prepare("INSERT INTO band_members (id, band_id, member_id) VALUES (?, ?, ?)").run("bm-ok-1", "b1", "m1");
+    db.prepare("INSERT INTO band_members (id, band_id, member_id, role, joined_year) VALUES (?, ?, ?, ?, ?)").run("bm-ok-2", "b1", "m1", "guitar", 1997);
+    db.prepare("INSERT INTO band_members (id, band_id, member_id, role, joined_year) VALUES (?, ?, ?, ?, ?)").run("bm-ok-3", "b1", "m1", "vocals", 1999);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM band_members").get()?.n).toBe(4);
   });
 
   it("rejects an invalid release_type", () => {
