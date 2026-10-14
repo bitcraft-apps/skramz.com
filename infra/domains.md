@@ -46,7 +46,7 @@
    `.gitkeep`, so there is nothing to deploy. Scaffold the Next.js app,
    create the Pages project, then attach `skramz.org` and
    `www.skramz.org` under Pages → Custom domains (certificates are
-   automatic).
+   automatic). Build/env record: `infra/pages.md`.
 4. `workers.dev` subdomain: `skramz-api.s-graczyk.workers.dev`.
 5. GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
    `D1_DATABASE_ID`) must be set for `.github/workflows/deploy-api.yml`
