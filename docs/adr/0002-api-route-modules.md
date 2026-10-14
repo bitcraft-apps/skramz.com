@@ -1,6 +1,6 @@
 # 0002: API route-module layout
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-14 (issue #32, follow-up from #7)
 
 ## Context
