@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
 
 // Issue #7: band-graph endpoint tests. Same real-SQL harness as crud.test.ts:
@@ -75,6 +75,9 @@ beforeEach(() => {
   }
   seedChain(db);
   ENV.DB = adapter(db);
+});
+afterEach(() => {
+  db.close();
 });
 
 type Graph = {

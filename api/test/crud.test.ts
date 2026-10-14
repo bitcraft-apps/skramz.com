@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
 import { publicWriteError, tokensEqual } from "../src/lib/http";
 
@@ -71,6 +71,9 @@ beforeEach(() => {
   }
   seed(db);
   ENV.DB = adapter(db);
+});
+afterEach(() => {
+  db.close();
 });
 
 const auth = { Authorization: `Bearer ${TOKEN}` };
