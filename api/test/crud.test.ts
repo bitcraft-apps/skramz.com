@@ -1,0 +1,285 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { beforeEach, describe, expect, it } from "vitest";
+import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
+
+// Real-SQL coverage for issue #8: the actual api/migrations/*.sql files are
+// applied to node:sqlite (same engine D1 uses locally) and the Hono app talks
+// to it through a small D1-shaped adapter, so handler SQL is observed, not mocked.
+const require = createRequire(import.meta.url);
+type Db = {
+  exec(sql: string): void;
+  prepare(sql: string): {
+    run(...p: unknown[]): unknown;
+    all(...p: unknown[]): Record<string, unknown>[];
+    get(...p: unknown[]): Record<string, unknown> | undefined;
+  };
+  close(): void;
+};
+const { DatabaseSync } = require("node:sqlite") as {
+  DatabaseSync: new (path: string) => Db;
+};
+
+const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "migrations");
+const TOKEN = "test-ingestion-token";
+
+function adapter(db: Db): D1Database {
+  return {
+    prepare: (query: string): D1PreparedStatement => {
+      let params: unknown[] = [];
+      const stmt = {
+        bind(...values: unknown[]) {
+          params = values;
+          return stmt;
+        },
+        async first<T>() {
+          const row = db.prepare(query).get(...params) as T | undefined;
+          return row ?? null;
+        },
+        async all<T>() {
+          const rows = db.prepare(query).all(...params) as T[];
+          return { results: rows };
+        },
+        async run() {
+          return db.prepare(query).run(...params);
+        },
+      };
+      return stmt;
+    },
+  };
+}
+
+const app = createApp();
+const ENV = { DB: null as unknown as D1Database, INGESTION_TOKEN: TOKEN };
+
+function seed(db: Db) {
+  db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b1", "Saetia", "saetia");
+  db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b2", "Orchid", "orchid");
+  db.prepare("INSERT INTO members (id, name, name_norm) VALUES (?, ?, ?)").run("m1", "Billy Werner", "billy werner");
+  db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r1", "b1", "Saetia", "LP");
+}
+
+let db: Db;
+beforeEach(() => {
+  db = new DatabaseSync(":memory:");
+  db.exec("PRAGMA foreign_keys = ON;");
+  for (const file of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
+    db.exec(readFileSync(join(migrationsDir, file), "utf8"));
+  }
+  seed(db);
+  ENV.DB = adapter(db);
+});
+
+const auth = { Authorization: `Bearer ${TOKEN}` };
+
+describe("issue #8: ingestion-token auth", () => {
+  it("unauthenticated POST returns 401 with the error envelope", async () => {
+    const res = await app.request("/api/bands", { method: "POST", body: JSON.stringify({ name: "X" }) }, ENV);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      error: { code: "unauthorized", message: "Valid ingestion token required" },
+    });
+  });
+
+  it("wrong token returns 401", async () => {
+    const res = await app.request(
+      "/api/bands",
+      { method: "POST", headers: { Authorization: "Bearer wrong" }, body: JSON.stringify({ name: "X" }) },
+      ENV,
+    );
+    expect(res.status).toBe(401);
+    expect((await res.json() as { error: { code: string } }).error.code).toBe("unauthorized");
+  });
+
+  it("valid token creates a band (201, server-computed name_norm)", async () => {
+    const res = await app.request(
+      "/api/bands",
+      { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Neil Perry" }) },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { data: Record<string, unknown> };
+    expect(json.data.name_norm).toBe("neil perry");
+    expect(db.prepare("SELECT COUNT(*) AS n FROM bands").get()?.n).toBe(3);
+  });
+});
+
+describe("issue #8: handler-layer validation", () => {
+  it("invalid release_type returns 422 with the error envelope", async () => {
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "b1", title: "Demo Tape", release_type: "7inch" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: { code: string; message: string } };
+    expect(json.error.code).toBe("invalid");
+    expect(json.error.message).toMatch(/release_type/);
+  });
+
+  it("missing release_type is allowed (DDL CHECK permits NULL)", async () => {
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "b1", title: "Untitled" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+  });
+
+  it("double-parent media-link returns 422 at the handler layer", async () => {
+    const res = await app.request(
+      "/api/media-links",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_id: "r1", band_id: "b1", provider: "bandcamp", url: "https://example.com" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("invalid");
+  });
+
+  it("neither-parent media-link returns 422 at the handler layer", async () => {
+    const res = await app.request(
+      "/api/media-links",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: "bandcamp", url: "https://example.com" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it("single-parent media-link writes succeed", async () => {
+    const res = await app.request(
+      "/api/media-links",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_id: "r1", provider: "bandcamp", url: "https://example.com/r" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+  });
+});
+
+describe("issue #8: reads + paginated search", () => {
+  it("GET /api/bands?search= matches LIKE on name_norm", async () => {
+    const res = await app.request("/api/bands?search=SAET", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { name: string }[]; nextCursor: null };
+    expect(json.data.map((b) => b.name)).toEqual(["Saetia"]);
+  });
+
+  it("GET /api/bands paginates with limit/cursor", async () => {
+    const first = (await (await app.request("/api/bands?limit=1", {}, ENV)).json()) as {
+      data: { id: string }[];
+      nextCursor: string | null;
+    };
+    expect(first.data).toHaveLength(1);
+    expect(first.nextCursor).toBe("b1");
+    const second = (await (await app.request(`/api/bands?limit=1&cursor=${first.nextCursor}`, {}, ENV)).json()) as {
+      data: { id: string }[];
+      nextCursor: null;
+    };
+    expect(second.data.map((b) => b.id)).toEqual(["b2"]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it("GET /api/members/:id returns the member + band history", async () => {
+    db.prepare("INSERT INTO band_members (id, band_id, member_id, role, joined_year) VALUES (?, ?, ?, ?, ?)").run(
+      "bm1",
+      "b1",
+      "m1",
+      "vocals",
+      1997,
+    );
+    const res = await app.request("/api/members/m1", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { name: string }; bands: { name: string }[] };
+    expect(json.data.name).toBe("Billy Werner");
+    expect(json.bands.map((b) => b.name)).toEqual(["Saetia"]);
+  });
+
+  it("GET /api/members/:id for a missing id returns 404 envelope", async () => {
+    const res = await app.request("/api/members/nope", {}, ENV);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("not_found");
+  });
+
+  it("GET /api/releases/:id returns the release + media_links", async () => {
+    db.prepare("INSERT INTO media_links (id, release_id, provider, url) VALUES (?, ?, ?, ?)").run(
+      "x1",
+      "r1",
+      "bandcamp",
+      "https://example.com/r",
+    );
+    const res = await app.request("/api/releases/r1", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { title: string };
+      media_links: { id: string }[];
+    };
+    expect(json.data.title).toBe("Saetia");
+    expect(json.media_links.map((m) => m.id)).toEqual(["x1"]);
+  });
+
+  it("GET /api/search?q= returns band/member/release hits paginated", async () => {
+    db.prepare("INSERT INTO releases (id, band_id, title) VALUES (?, ?, ?)").run("r9", "b1", "Saetia Demo");
+    const res = await app.request("/api/search?q=saetia", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { hits: { type: string }[]; nextCursor: unknown };
+    const types = new Set(json.hits.map((h) => h.type));
+    expect(types.has("band")).toBe(true);
+    expect(types.has("release")).toBe(true);
+    expect("nextCursor" in json).toBe(true);
+  });
+});
+
+describe("issue #8: PATCH writes", () => {
+  it("PATCH /api/bands/:id updates with a valid token", async () => {
+    const res = await app.request(
+      "/api/bands/b1",
+      { method: "PATCH", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ location: "NY" }) },
+      ENV,
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { data: { location: string } }).data.location).toBe("NY");
+  });
+
+  it("PATCH without a token returns 401", async () => {
+    const res = await app.request(
+      "/api/bands/b1",
+      { method: "PATCH", body: JSON.stringify({ location: "NY" }) },
+      ENV,
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("PATCH /api/releases/:id rejects an invalid release_type with 422", async () => {
+    const res = await app.request(
+      "/api/releases/r1",
+      {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_type: "VHS" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+  });
+});
