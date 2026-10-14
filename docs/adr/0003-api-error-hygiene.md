@@ -18,7 +18,9 @@ anything else → 422 `invalid` with an op-named fallback. Thrown errors use
 `publicInternalError()` → 500 `internal` via `onError`; unknown routes 404
 `not_found`; dead D1 500 `d1_unavailable`. Auth perimeter keeps its own
 stable codes (`unauthorized` 401, `server_misconfigured` 500) and search
-keeps `missing_query` 400. Every failure body is exactly
+keeps `missing_query` 400. `/api/search` also returns 400 `invalid_cursor`
+for a malformed/tampered cursor or a cursor bound to a different `q`
+(issue #29, opaque composite cursor). Every failure body is exactly
 `{error:{code,message}}` with a stable code; raw `err.message` is only
 `console.error`-logged server-side. Rate limiting stays a Cloudflare
 dashboard rule on `/api/*` (no code). No CORS headers (safe default).
