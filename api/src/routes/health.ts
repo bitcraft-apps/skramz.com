@@ -10,7 +10,7 @@ export function registerHealth(app: App): void {
     } catch (err) {
       console.error("D1 query failed", err);
       const pub = publicD1Unavailable();
-      return c.json({ error: { code: pub.code, message: pub.message } }, 500);
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
   });
 }

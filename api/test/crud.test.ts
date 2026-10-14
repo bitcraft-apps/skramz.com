@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
+import { publicWriteError } from "../src/lib/http";
 
 // Real-SQL coverage for issue #8: the actual api/migrations/*.sql files are
 // applied to node:sqlite (same engine D1 uses locally) and the Hono app talks
@@ -321,10 +322,137 @@ describe("sanitized DB errors", () => {
     });
   });
 
-  it("CHECK mapper returns a public message without engine text", async () => {
-    const { publicWriteError } = await import("../src/lib/http");
+  it("CHECK mapper returns a public message without engine text", () => {
     const pub = publicWriteError(new Error("CHECK constraint failed: releases"), "insert");
     expect(pub).toEqual({ status: 422, code: "invalid", message: "Value violates a database check" });
     expect(JSON.stringify(pub)).not.toMatch(/unique|check constraint|sqlite|d1_/i);
+  });
+
+  it("NOT NULL mapper returns a public message without engine text", () => {
+    const pub = publicWriteError(new Error("NOT NULL constraint failed: bands.name"), "insert");
+    expect(pub).toEqual({ status: 422, code: "invalid", message: "A required field is missing" });
+  });
+
+  it("unknown engine error falls back to a public message without engine text", () => {
+    expect(publicWriteError(new Error("D1_ERROR: something exotic"), "insert")).toEqual({
+      status: 422,
+      code: "invalid",
+      message: "Insert failed",
+    });
+    expect(publicWriteError(new Error("D1_ERROR: something exotic"), "update")).toEqual({
+      status: 422,
+      code: "invalid",
+      message: "Update failed",
+    });
+  });
+
+  it("maps non-Error values carrying a message field", () => {
+    expect(publicWriteError({ message: "FOREIGN KEY constraint failed" }, "insert")).toEqual({
+      status: 422,
+      code: "invalid",
+      message: "Referenced record does not exist",
+    });
+    expect(publicWriteError("UNIQUE constraint failed: bands.name", "insert")).toEqual({
+      status: 409,
+      code: "conflict",
+      message: "Resource already exists",
+    });
+  });
+});
+
+describe("issue #36: no engine text leaks on any failure path", () => {
+  // Spec AC1: no substring matching engine internals in any 4xx/5xx body.
+  const ENGINE_RE = /SQLite|D1_ERROR|constraint failed|no such (table|column)|unique|check constraint|sqlite|d1_/i;
+
+  async function expectSanitized(res: Response, status: number, code: string) {
+    expect(res.status).toBe(status);
+    const text = await res.text();
+    expect(text).not.toMatch(ENGINE_RE);
+    expect(JSON.parse(text)).toEqual({ error: { code, message: expect.any(String) } });
+  }
+
+  it("PATCH band to a duplicate name returns 409 conflict without engine text", async () => {
+    const res = await app.request(
+      "/api/bands/b2",
+      { method: "PATCH", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ name: "Saetia" }) },
+      ENV,
+    );
+    await expectSanitized(res, 409, "conflict");
+  });
+
+  it("members validation failure returns 422 without engine text", async () => {
+    const res = await app.request(
+      "/api/members",
+      { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({}) },
+      ENV,
+    );
+    await expectSanitized(res, 422, "invalid");
+  });
+
+  it("releases PATCH to a missing band returns 422 without engine text", async () => {
+    const res = await app.request(
+      "/api/releases/r1",
+      {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "missing-band" }),
+      },
+      ENV,
+    );
+    await expectSanitized(res, 422, "invalid");
+  });
+
+  it("media-links insert with a missing parent returns 422 without engine text", async () => {
+    const res = await app.request(
+      "/api/media-links",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_id: "missing-release", provider: "bandcamp", url: "https://example.com/x" }),
+      },
+      ENV,
+    );
+    await expectSanitized(res, 422, "invalid");
+  });
+
+  it("media-links PATCH to a missing parent returns 422 without engine text", async () => {
+    const created = await app.request(
+      "/api/media-links",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_id: "r1", provider: "bandcamp", url: "https://example.com/r" }),
+      },
+      ENV,
+    );
+    expect(created.status).toBe(201);
+    const { data } = (await created.json()) as { data: { id: string } };
+    const res = await app.request(
+      `/api/media-links/${data.id}`,
+      {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_id: "missing-release", band_id: null }),
+      },
+      ENV,
+    );
+    await expectSanitized(res, 422, "invalid");
+  });
+
+  it("thrown errors return 500 internal without leaking the message", async () => {
+    // Fresh app: Hono freezes routing after the first request, so the
+    // throwing route must be registered before any request is served.
+    // onError wiring under test is the real one from createApp().
+    const boom = createApp();
+    boom.get("/api/__boom", () => {
+      throw new Error("SQLite boom: no such table: secret_schema");
+    });
+    const res = await boom.request("/api/__boom", {}, ENV);
+    await expectSanitized(res, 500, "internal");
+  });
+
+  it("unknown routes return the 404 envelope", async () => {
+    const res = await app.request("/api/does-not-exist", {}, ENV);
+    await expectSanitized(res, 404, "not_found");
   });
 });

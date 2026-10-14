@@ -27,7 +27,8 @@ export function publicWriteError(
   op: "insert" | "update",
 ): { status: 409 | 422; code: string; message: string } {
   console.error(op === "insert" ? "Insert failed" : "Update failed", err);
-  const msg = err instanceof Error ? err.message : String(err ?? "");
+  const raw = err instanceof Error ? err.message : (err as { message?: unknown } | null)?.message ?? err;
+  const msg = String(raw ?? "");
   if (/unique constraint/i.test(msg)) {
     return { status: 409, code: "conflict", message: "Resource already exists" };
   }
