@@ -38,7 +38,7 @@ jobs:
         run: |
           [ -n "${{ secrets.D1_DATABASE_ID }}" ] || { echo "D1_DATABASE_ID secret is empty"; exit 1; }
           sed -i 's/database_id = "00000000-0000-0000-0000-000000000000"/database_id = "${{ secrets.D1_DATABASE_ID }}"/' wrangler.toml
-          grep -q '00000000-0000-0000-0000-000000000000' wrangler.toml && { echo "placeholder database_id still present"; exit 1; }
+          if grep -q '00000000-0000-0000-0000-000000000000' wrangler.toml; then echo "placeholder database_id still present"; exit 1; fi
       - name: Apply D1 migrations (remote)
         run: pnpm exec wrangler d1 migrations apply DB --remote
         env:
