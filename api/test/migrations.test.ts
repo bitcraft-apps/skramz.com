@@ -38,7 +38,7 @@ function seed(db: Db) {
   db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b1", "Saetia", "saetia");
   db.prepare("INSERT INTO members (id, name, name_norm) VALUES (?, ?, ?)").run("m1", "Billy Werner", "billy werner");
   db.prepare("INSERT INTO band_members (id, band_id, member_id, role, joined_year) VALUES (?, ?, ?, ?, ?)").run("bm1", "b1", "m1", "vocals", 1997);
-  db.prepare("INSERT INTO releases (id, band_id, title, release_type, release_year) VALUES (?, ?, ?, ?, ?)").run("r1", "b1", "Saetia", "LP", 1998);
+  db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type, release_year) VALUES (?, ?, ?, ?, ?, ?)").run("r1", "b1", "Saetia", "saetia", "LP", 1998);
 }
 
 const EXPECTED_INDEXES = [
@@ -48,6 +48,7 @@ const EXPECTED_INDEXES = [
   "idx_media_band",
   "idx_media_release",
   "idx_releases_band",
+  "idx_releases_title_norm",
   "ux_band_members_nullsafe_dedupe",
 ];
 
@@ -173,5 +174,25 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
     db.prepare("INSERT INTO media_links (id, release_id, provider, url) VALUES (?, ?, ?, ?)").run("x1", "r1", "bandcamp", "https://example.com/r");
     expect(db.prepare("SELECT release_type AS t FROM releases WHERE id = ?").get("r1")?.t).toBe("LP");
     expect(db.prepare("SELECT COUNT(*) AS n FROM media_links").get()?.n).toBe(1);
+  });
+
+  it("0004 backfills title_norm for pre-existing releases (no NULLs, indexed)", () => {
+    // Old-schema DB (migrations before 0004 have no title_norm): insert a
+    // release, then apply 0004 and check the backfill.
+    const old = new DatabaseSync(":memory:");
+    old.exec("PRAGMA foreign_keys = ON;");
+    for (const file of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
+      if (file >= "0004") continue;
+      old.exec(readFileSync(join(migrationsDir, file), "utf8"));
+    }
+    old.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b1", "Saetia", "saetia");
+    old.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r-old", "b1", "Dark-Side! EP", "EP");
+    old.exec(readFileSync(join(migrationsDir, "0004_releases_title_norm.sql"), "utf8"));
+    const row = old.prepare("SELECT title_norm AS n FROM releases WHERE id = ?").get("r-old") as { n: unknown } | undefined;
+    expect(typeof row?.n).toBe("string");
+    expect((row?.n as string).length).toBeGreaterThan(0);
+    expect(old.prepare("SELECT COUNT(*) AS n FROM releases WHERE title_norm IS NULL").get()?.n).toBe(0);
+    expect(old.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='idx_releases_title_norm'").all()).toHaveLength(1);
+    old.close();
   });
 });

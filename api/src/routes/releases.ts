@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { RELEASE_TYPES, publicWriteError, readBody, requireAuth } from "../lib/http";
+import { RELEASE_TYPES, normalizeName, publicWriteError, readBody, requireAuth } from "../lib/http";
 
 function invalidReleaseType(value: unknown): boolean {
   // releases.release_type is NOT NULL (issue #21); a present value must be in
@@ -45,15 +45,17 @@ export function registerReleases(app: App): void {
       id: crypto.randomUUID(),
       band_id: parsed.body.band_id,
       title: parsed.body.title.trim(),
+      // Server-computed (issue #51); a client-supplied title_norm is ignored.
+      title_norm: normalizeName(parsed.body.title.trim()),
       release_type: parsed.body.release_type,
       release_year: parsed.body.release_year ?? null,
       cover_r2_key: parsed.body.cover_r2_key ?? null,
     };
     try {
       await c.env.DB.prepare(
-        "INSERT INTO releases (id, band_id, title, release_type, release_year, cover_r2_key) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO releases (id, band_id, title, title_norm, release_type, release_year, cover_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-        .bind(row.id, row.band_id, row.title, row.release_type, row.release_year, row.cover_r2_key)
+        .bind(row.id, row.band_id, row.title, row.title_norm, row.release_type, row.release_year, row.cover_r2_key)
         .run();
     } catch (err) {
       const pub = publicWriteError(err, "insert");
@@ -90,6 +92,9 @@ export function registerReleases(app: App): void {
         return c.json({ error: { code: "invalid", message: "Field title must be a non-empty string" } }, 422);
       }
       patch.title = patch.title.trim();
+      // Server-computed (issue #51); a client-supplied title_norm is ignored
+      // (it is not in the copied key list, so it never reaches the UPDATE).
+      patch.title_norm = normalizeName(patch.title as string);
     }
     if (Object.keys(patch).length === 0) {
       return c.json({ error: { code: "invalid", message: "Nothing to update" } }, 422);

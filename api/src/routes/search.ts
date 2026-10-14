@@ -46,21 +46,22 @@ function decodeCursor(raw: string): SearchCursor | null {
 
 export function registerSearch(app: App): void {
   // GET /api/search?q=&limit=&cursor= — unified band/member/release hits.
-  // Each type paginates independently (up to `limit` hits per type) with
-  // positions tracked in an opaque composite cursor; a page is terminal
-  // (nextCursor null) only when no table overflows its per-type limit.
+  // Option A (#50): `limit` applies PER TYPE, not to the merged list. Each
+  // of bands/members/releases paginates independently (up to `limit` hits
+  // per type) with positions tracked in an opaque composite cursor; a page
+  // is terminal (nextCursor null) only when no table overflows its per-type
+  // limit.
+  // Response: { hits: ({ type: "band"|"member"|"release" } & row)[], nextCursor }.
+  // Size bound: each type contributes <= `limit` hits, so a page holds at
+  // most 3*`limit` hits total (fewer when a type has fewer matches).
   app.get("/api/search", async (c) => {
     const q = c.req.query("q") ?? "";
     if (!q.trim()) {
       return c.json({ error: { code: "missing_query", message: "Query param q is required" } }, 400);
     }
-    // The cursor is bound to the exact trimmed query string (not just its
-    // normalized form): the releases LIKE pattern is built from the raw
-    // query while bands/members use the normalized form, so a
-    // case/punctuation variant of q would share a normalized cursor yet
-    // match a different release set across pages (duplicates/skips).
-    // Binding the raw string keeps every page's patterns identical.
-    const rawQ = q.trim();
+    // The cursor is bound to the normalized query: all three tables share
+    // the same `%normQ%` LIKE pattern (releases via title_norm since #51),
+    // so case/punctuation variants of q match identical sets on every page.
     const normQ = normalizeName(q);
     const rawCursor = c.req.query("cursor") ?? "";
     let pos: SearchCursor | null = null;
@@ -69,7 +70,7 @@ export function registerSearch(app: App): void {
       if (!pos) {
         return c.json({ error: { code: "invalid_cursor", message: "Cursor is malformed or tampered" } }, 400);
       }
-      if (pos.q !== rawQ) {
+      if (pos.q !== normQ) {
         return c.json({ error: { code: "invalid_cursor", message: "Cursor does not match query q" } }, 400);
       }
     }
@@ -105,8 +106,8 @@ export function registerSearch(app: App): void {
       pos?.member ?? null,
     );
     const release = await fetchPage<{ id: string; name: string; band_id: string }>(
-      `SELECT id, title AS name, band_id FROM releases WHERE title LIKE (?) ESCAPE '\\'`,
-      `%${escapeLike(rawQ)}%`,
+      `SELECT id, title AS name, band_id FROM releases WHERE title_norm LIKE (?) ESCAPE '\\'`,
+      pattern,
       pos?.release ?? null,
     );
     const hits = [
@@ -118,7 +119,7 @@ export function registerSearch(app: App): void {
     // non-empty whenever hasMore is true — no extra guard needed.
     const hasMore = band.overflow || member.overflow || release.overflow;
     const nextCursor = hasMore
-      ? encodeCursor({ v: 1, q: rawQ, band: band.last, member: member.last, release: release.last })
+      ? encodeCursor({ v: 1, q: normQ, band: band.last, member: member.last, release: release.last })
       : null;
     return c.json({ hits, nextCursor });
   });
