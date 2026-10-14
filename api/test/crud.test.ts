@@ -59,7 +59,7 @@ function seed(db: Db) {
   db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b1", "Saetia", "saetia");
   db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b2", "Orchid", "orchid");
   db.prepare("INSERT INTO members (id, name, name_norm) VALUES (?, ?, ?)").run("m1", "Billy Werner", "billy werner");
-  db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r1", "b1", "Saetia", "LP");
+  db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run("r1", "b1", "Saetia", "saetia", "LP");
 }
 
 let db: Db;
@@ -273,7 +273,7 @@ describe("issue #8: reads + paginated search", () => {
   });
 
   it("GET /api/search?q= returns band/member/release hits paginated", async () => {
-    db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r9", "b1", "Saetia Demo", "Demo");
+    db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run("r9", "b1", "Saetia Demo", "saetia demo", "Demo");
     const res = await app.request("/api/search?q=saetia", {}, ENV);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { hits: { type: string }[]; nextCursor: unknown };
@@ -346,10 +346,10 @@ describe("issue #29: /api/search cross-type cursor", () => {
     expect((await res.json() as { error: { code: string } }).error.code).toBe("invalid_cursor");
   });
 
-  it("cursor is bound to the exact query string: case-variant reuse is rejected", async () => {
-    // Same letters but different raw q: the releases LIKE pattern is built
-    // from the raw query, so reusing the cursor would page a different
-    // release set (duplicates/skips). The cursor must not be accepted.
+  it("cursor is bound to the normalized query: case-variant reuse is accepted", async () => {
+    // All three tables share the same `%normQ%` LIKE pattern (releases via
+    // title_norm), so a case variant pages the identical set — no
+    // duplicates/skips, and the cursor must be accepted.
     db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b9", "Saetia Tribute", "saetia tribute");
     const withCursor = await search("q=saetia&limit=1");
     expect(withCursor.status).toBe(200);
@@ -359,8 +359,113 @@ describe("issue #29: /api/search cross-type cursor", () => {
       {},
       ENV,
     );
-    expect(res.status).toBe(400);
-    expect((await res.json() as { error: { code: string } }).error.code).toBe("invalid_cursor");
+    expect(res.status).toBe(200);
+  });
+
+  it("cursor issued for a punctuation variant is accepted for the plain query", async () => {
+    // 'Dark-Side!' normalizes to 'dark side': page 1 with the punctuated
+    // query, page 2 with the plain spelling, same cursor.
+    for (const [id, title, norm] of [
+      ["r2", "Dark-Side! One", "dark side one"],
+      ["r3", "Dark-Side! Two", "dark side two"],
+      ["r4", "Dark-Side! Three", "dark side three"],
+    ] as const) {
+      db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run(id, "b1", title, norm, "EP");
+    }
+    const p1 = await search("q=Dark-Side!&limit=2");
+    expect(p1.status).toBe(200);
+    expect(p1.json.nextCursor).not.toBeNull();
+    const p2 = await search(`q=dark%20side&limit=2&cursor=${encodeURIComponent(p1.json.nextCursor as string)}`);
+    expect(p2.status).toBe(200);
+    const ids1 = new Set(p1.json.hits.filter((h) => h.type === "release").map((h) => h.id));
+    for (const h of p2.json.hits.filter((h) => h.type === "release")) {
+      expect(ids1.has(h.id)).toBe(false);
+    }
+  });
+});
+
+describe("releases title_norm", () => {
+  it("release search matches case/punctuation variants via title_norm", async () => {
+    db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run(
+      "r9", "b1", "Dark-Side! EP", "dark side ep", "EP",
+    );
+    const res = await app.request("/api/search?q=dark%20side", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { hits: { type: string; id: string }[] };
+    expect(json.hits.filter((h) => h.type === "release").map((h) => h.id)).toContain("r9");
+  });
+
+  it("POST /api/releases server-computes title_norm and ignores client values", async () => {
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "b1", title: "Dark-Side! EP", release_type: "EP", title_norm: "bogus" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { data: Record<string, unknown> };
+    expect(json.data.title_norm).toBe("dark side ep");
+    const row = db.prepare("SELECT title_norm AS n FROM releases WHERE id = ?").get(json.data.id as string) as { n: string };
+    expect(row.n).toBe("dark side ep");
+  });
+
+  it("PATCH /api/releases/:id recomputes title_norm when the title changes", async () => {
+    const res = await app.request(
+      "/api/releases/r1",
+      {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Saetia / Orchid Split!" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { data: { title_norm: string } }).data.title_norm).toBe("saetia orchid split");
+    const row = db.prepare("SELECT title_norm AS n FROM releases WHERE id = ?").get("r1") as { n: string };
+    expect(row.n).toBe("saetia orchid split");
+  });
+});
+
+describe("per-type limits in /api/search", () => {
+  it("returns up to `limit` hits per type (page total <= 3*limit)", async () => {
+    // Seed more matches than limit=2 in every type: 4 bands (b1 + 3),
+    // 3 members, 3 releases (r1 + 2). Each type must be capped at 2,
+    // so the merged page holds exactly 6 = 3*limit hits.
+    for (const [id, name, norm] of [
+      ["b3", "Saetia Kid", "saetia kid"],
+      ["b4", "Saetia Youth", "saetia youth"],
+      ["b5", "Saetia End", "saetia end"],
+    ] as const) {
+      db.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run(id, name, norm);
+    }
+    for (const [id, name, norm] of [
+      ["m2", "Saetia Fan", "saetia fan"],
+      ["m3", "Saetia Roadie", "saetia roadie"],
+      ["m4", "Saetia Drummer", "saetia drummer"],
+    ] as const) {
+      db.prepare("INSERT INTO members (id, name, name_norm) VALUES (?, ?, ?)").run(id, name, norm);
+    }
+    for (const [id, title, norm] of [
+      ["r2", "Saetia Live", "saetia live"],
+      ["r3", "Saetia Demos", "saetia demos"],
+    ] as const) {
+      db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run(id, "b1", title, norm, "LP");
+    }
+    const res = await app.request("/api/search?q=saetia&limit=2", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { hits: { type: string; id: string }[]; nextCursor: unknown };
+    const count = (t: string) => json.hits.filter((h) => h.type === t).length;
+    expect(count("band")).toBeLessThanOrEqual(2);
+    expect(count("member")).toBeLessThanOrEqual(2);
+    expect(count("release")).toBeLessThanOrEqual(2);
+    expect(json.hits.length).toBeLessThanOrEqual(6);
+    // Tight: every type overflows, so each cap is hit exactly.
+    expect(count("band")).toBe(2);
+    expect(count("member")).toBe(2);
+    expect(count("release")).toBe(2);
   });
 });
 

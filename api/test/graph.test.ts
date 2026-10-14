@@ -167,7 +167,7 @@ describe("issue #7: GET /api/bands/:id/graph", () => {
 
 describe("issue #7: GET /api/bands/:id detail shape", () => {
   it("returns band + members + releases + media_links", async () => {
-    db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r1", "a", "First Tape", "Demo");
+    db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run("r1", "a", "First Tape", "first tape", "Demo");
     db.prepare("INSERT INTO media_links (id, band_id, provider, url) VALUES (?, ?, ?, ?)").run(
       "x1",
       "a",
