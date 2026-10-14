@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 // Applies the real api/migrations/*.sql files (in order) to a local SQLite
 // database — the same engine D1/miniflare uses locally — via Node's built-in
@@ -54,6 +54,9 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
   let db: Db;
   beforeEach(() => {
     db = migratedDb();
+  });
+  afterEach(() => {
+    db.close();
   });
 
   it("creates all five tables", () => {
