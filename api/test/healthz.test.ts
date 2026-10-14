@@ -49,7 +49,7 @@ describe("GET /healthz", () => {
     const res = await app.request("/healthz", {}, { DB: db });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({
-      error: { code: "d1_unavailable", message: "boom" },
+      error: { code: "d1_unavailable", message: "D1 unavailable" },
     });
   });
 
@@ -62,8 +62,28 @@ describe("GET /healthz", () => {
     const res = await fresh.request("/__test_throw", {}, { DB: db });
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({
-      error: { code: "internal", message: "kaboom" },
+      error: { code: "internal", message: "Internal server error" },
     });
+  });
+
+  it("sanitizes engine text and logs raw server-side", async () => {
+    const orig = console.error;
+    let logged = "";
+    console.error = (...args: unknown[]) => {
+      logged += args.map(String).join(" ");
+    };
+    try {
+      const db = stubDb(new Error("D1_ERROR: UNIQUE constraint failed: bands.name"));
+      const res = await app.request("/healthz", {}, { DB: db });
+      const json = (await res.json()) as { error: { code: string; message: string } };
+      expect(res.status).toBe(500);
+      expect(json.error.code).toBe("d1_unavailable");
+      expect(json.error.message).not.toMatch(/unique|check constraint|sqlite/i);
+      expect(json.error.message).toBe("D1 unavailable");
+      expect(logged).toMatch(/D1 query failed/);
+    } finally {
+      console.error = orig;
+    }
   });
 
   it("returns the uniform error shape with 404 for unknown routes", async () => {

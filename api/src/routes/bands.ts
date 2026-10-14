@@ -1,11 +1,11 @@
 import type { App } from "../lib/http";
 import {
   GRAPH_LIMIT,
-  errMessage,
   escapeLike,
   normalizeName,
   parseDepth,
   parseLimit,
+  publicWriteError,
   readBody,
   requireAuth,
 } from "../lib/http";
@@ -148,7 +148,8 @@ export function registerBands(app: App): void {
         .bind(row.id, row.name, row.name_norm, row.formed_year, row.disbanded_year, row.location, row.bio, row.photo_r2_key)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Insert failed") } }, 422);
+      const pub = publicWriteError(err, "insert");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     return c.json({ data: row }, 201);
   });
@@ -186,7 +187,8 @@ export function registerBands(app: App): void {
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Update failed") } }, 422);
+      const pub = publicWriteError(err, "update");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     const updated = await c.env.DB.prepare("SELECT * FROM bands WHERE id = ?").bind(id).first();
     return c.json({ data: updated });

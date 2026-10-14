@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { RELEASE_TYPES, errMessage, readBody, requireAuth } from "../lib/http";
+import { RELEASE_TYPES, publicWriteError, readBody, requireAuth } from "../lib/http";
 
 function invalidReleaseType(value: unknown): boolean {
   // DDL CHECK permits NULL, so a missing release_type is allowed; a present
@@ -53,7 +53,8 @@ export function registerReleases(app: App): void {
         .bind(row.id, row.band_id, row.title, row.release_type, row.release_year, row.cover_r2_key)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Insert failed") } }, 422);
+      const pub = publicWriteError(err, "insert");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     return c.json({ data: row }, 201);
   });
@@ -95,7 +96,8 @@ export function registerReleases(app: App): void {
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Update failed") } }, 422);
+      const pub = publicWriteError(err, "update");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     const updated = await c.env.DB.prepare("SELECT * FROM releases WHERE id = ?").bind(id).first();
     return c.json({ data: updated });

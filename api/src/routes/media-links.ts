@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { errMessage, readBody, requireAuth } from "../lib/http";
+import { publicWriteError, readBody, requireAuth } from "../lib/http";
 
 function singleParentViolation(releaseId: unknown, bandId: unknown): boolean {
   // Exactly one parent required (mirrors the DDL CHECK at handler layer).
@@ -43,7 +43,8 @@ export function registerMediaLinks(app: App): void {
         .bind(row.id, row.release_id, row.band_id, row.provider, row.url, row.embed_url)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Insert failed") } }, 422);
+      const pub = publicWriteError(err, "insert");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     return c.json({ data: row }, 201);
   });
@@ -85,7 +86,8 @@ export function registerMediaLinks(app: App): void {
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {
-      return c.json({ error: { code: "invalid", message: errMessage(err, "Update failed") } }, 422);
+      const pub = publicWriteError(err, "update");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     const updated = await c.env.DB.prepare("SELECT * FROM media_links WHERE id = ?").bind(id).first();
     return c.json({ data: updated });
