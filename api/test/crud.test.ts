@@ -346,7 +346,7 @@ describe("issue #29: /api/search cross-type cursor", () => {
     expect((await res.json() as { error: { code: string } }).error.code).toBe("invalid_cursor");
   });
 
-  it("cursor is bound to the normalized query: case-variant reuse is accepted (issue #51)", async () => {
+  it("cursor is bound to the normalized query: case-variant reuse is accepted", async () => {
     // All three tables share the same `%normQ%` LIKE pattern (releases via
     // title_norm), so a case variant pages the identical set — no
     // duplicates/skips, and the cursor must be accepted.
@@ -362,7 +362,7 @@ describe("issue #29: /api/search cross-type cursor", () => {
     expect(res.status).toBe(200);
   });
 
-  it("cursor issued for a punctuation variant is accepted for the plain query (issue #51)", async () => {
+  it("cursor issued for a punctuation variant is accepted for the plain query", async () => {
     // 'Dark-Side!' normalizes to 'dark side': page 1 with the punctuated
     // query, page 2 with the plain spelling, same cursor.
     for (const [id, title, norm] of [
@@ -384,7 +384,7 @@ describe("issue #29: /api/search cross-type cursor", () => {
   });
 });
 
-describe("issue #51: releases title_norm", () => {
+describe("releases title_norm", () => {
   it("release search matches case/punctuation variants via title_norm", async () => {
     db.prepare("INSERT INTO releases (id, band_id, title, title_norm, release_type) VALUES (?, ?, ?, ?, ?)").run(
       "r9", "b1", "Dark-Side! EP", "dark side ep", "EP",
@@ -429,7 +429,7 @@ describe("issue #51: releases title_norm", () => {
   });
 });
 
-describe("issue #50: per-type limits in /api/search", () => {
+describe("per-type limits in /api/search", () => {
   it("returns up to `limit` hits per type (page total <= 3*limit)", async () => {
     // Seed more matches than limit=2 in every type: 4 bands (b1 + 3),
     // 3 members, 3 releases (r1 + 2). Each type must be capped at 2,

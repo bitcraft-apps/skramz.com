@@ -45,7 +45,7 @@ export function registerReleases(app: App): void {
       id: crypto.randomUUID(),
       band_id: parsed.body.band_id,
       title: parsed.body.title.trim(),
-      // Server-computed (issue #51); a client-supplied title_norm is ignored.
+      // Server-computed; a client-supplied title_norm is ignored.
       title_norm: normalizeName(parsed.body.title.trim()),
       release_type: parsed.body.release_type,
       release_year: parsed.body.release_year ?? null,
@@ -92,7 +92,7 @@ export function registerReleases(app: App): void {
         return c.json({ error: { code: "invalid", message: "Field title must be a non-empty string" } }, 422);
       }
       patch.title = patch.title.trim();
-      // Server-computed (issue #51); a client-supplied title_norm is ignored
+      // Server-computed; a client-supplied title_norm is ignored
       // (it is not in the copied key list, so it never reaches the UPDATE).
       patch.title_norm = normalizeName(patch.title as string);
     }

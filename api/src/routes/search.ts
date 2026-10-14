@@ -46,7 +46,7 @@ function decodeCursor(raw: string): SearchCursor | null {
 
 export function registerSearch(app: App): void {
   // GET /api/search?q=&limit=&cursor= — unified band/member/release hits.
-  // Option A (#50): `limit` applies PER TYPE, not to the merged list. Each
+  // `limit` applies PER TYPE, not to the merged list. Each
   // of bands/members/releases paginates independently (up to `limit` hits
   // per type) with positions tracked in an opaque composite cursor; a page
   // is terminal (nextCursor null) only when no table overflows its per-type
@@ -60,7 +60,7 @@ export function registerSearch(app: App): void {
       return c.json({ error: { code: "missing_query", message: "Query param q is required" } }, 400);
     }
     // The cursor is bound to the normalized query: all three tables share
-    // the same `%normQ%` LIKE pattern (releases via title_norm since #51),
+    // the same `%normQ%` LIKE pattern (releases via title_norm),
     // so case/punctuation variants of q match identical sets on every page.
     const normQ = normalizeName(q);
     const rawCursor = c.req.query("cursor") ?? "";

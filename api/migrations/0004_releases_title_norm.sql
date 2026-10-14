@@ -1,4 +1,4 @@
--- Issue #51: normalized release-title search target (releases.title_norm).
+-- Normalized release-title search target (releases.title_norm).
 -- Bands/members already LIKE on name_norm; releases still LIKE on the raw
 -- title, so q=SAETIA missed "Saetia" and cursors had to bind the raw query
 -- string. Server computes title_norm via normalizeName on writes (same as
