@@ -124,13 +124,43 @@ describe("issue #8: handler-layer validation", () => {
     expect(json.error.message).toMatch(/release_type/);
   });
 
-  it("missing release_type is allowed (DDL CHECK permits NULL)", async () => {
+  it("missing release_type returns 422 (NOT NULL since issue #21)", async () => {
     const res = await app.request(
       "/api/releases",
       {
         method: "POST",
         headers: { ...auth, "Content-Type": "application/json" },
         body: JSON.stringify({ band_id: "b1", title: "Untitled" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+    const json = (await res.json()) as { error: { code: string; message: string } };
+    expect(json.error.code).toBe("invalid");
+    expect(json.error.message).toMatch(/release_type/);
+  });
+
+  it("null release_type returns 422 (NOT NULL since issue #21)", async () => {
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "b1", title: "Untitled", release_type: null }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe("invalid");
+  });
+
+  it("a valid release_type creates the release (201)", async () => {
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "b1", title: "Untitled", release_type: "Demo" }),
       },
       ENV,
     );
@@ -240,7 +270,7 @@ describe("issue #8: reads + paginated search", () => {
   });
 
   it("GET /api/search?q= returns band/member/release hits paginated", async () => {
-    db.prepare("INSERT INTO releases (id, band_id, title) VALUES (?, ?, ?)").run("r9", "b1", "Saetia Demo");
+    db.prepare("INSERT INTO releases (id, band_id, title, release_type) VALUES (?, ?, ?, ?)").run("r9", "b1", "Saetia Demo", "Demo");
     const res = await app.request("/api/search?q=saetia", {}, ENV);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { hits: { type: string }[]; nextCursor: unknown };
@@ -283,6 +313,20 @@ describe("issue #8: PATCH writes", () => {
     );
     expect(res.status).toBe(422);
   });
+
+  it("PATCH /api/releases/:id rejects clearing release_type to null with 422 (issue #21)", async () => {
+    const res = await app.request(
+      "/api/releases/r1",
+      {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ release_type: null }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+    expect(db.prepare("SELECT release_type AS t FROM releases WHERE id = ?").get("r1")?.t).toBe("LP");
+  });
 });
 
 describe("sanitized DB errors", () => {
@@ -310,7 +354,7 @@ describe("sanitized DB errors", () => {
       {
         method: "POST",
         headers: { ...auth, "Content-Type": "application/json" },
-        body: JSON.stringify({ band_id: "missing-band", title: "Ghost" }),
+        body: JSON.stringify({ band_id: "missing-band", title: "Ghost", release_type: "LP" }),
       },
       ENV,
     );

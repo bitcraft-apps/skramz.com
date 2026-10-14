@@ -2,9 +2,10 @@ import type { App } from "../lib/http";
 import { RELEASE_TYPES, publicWriteError, readBody, requireAuth } from "../lib/http";
 
 function invalidReleaseType(value: unknown): boolean {
-  // DDL CHECK permits NULL, so a missing release_type is allowed; a present
-  // value must be in the enum (issue #8: "validate release_type enum").
-  if (value === undefined || value === null) return false;
+  // releases.release_type is NOT NULL (issue #21); a present value must be in
+  // the enum (issue #8: "validate release_type enum"). Undefined (absent on
+  // PATCH) is allowed; null is never a valid type.
+  if (value === undefined) return false;
   return !(typeof value === "string" && (RELEASE_TYPES as readonly string[]).includes(value));
 }
 
@@ -32,7 +33,9 @@ export function registerReleases(app: App): void {
     if (!parsed.ok || typeof parsed.body.band_id !== "string" || typeof parsed.body.title !== "string" || !parsed.body.title.trim()) {
       return c.json({ error: { code: "invalid", message: "Fields band_id and title are required" } }, 422);
     }
-    if (invalidReleaseType(parsed.body.release_type)) {
+    // release_type is required (NOT NULL since issue #21): missing, null, or
+    // off-enum values all get the same 422 before hitting the DDL.
+    if (typeof parsed.body.release_type !== "string" || invalidReleaseType(parsed.body.release_type)) {
       return c.json(
         { error: { code: "invalid", message: `release_type must be one of ${RELEASE_TYPES.join(", ")}` } },
         422,
@@ -42,7 +45,7 @@ export function registerReleases(app: App): void {
       id: crypto.randomUUID(),
       band_id: parsed.body.band_id,
       title: parsed.body.title.trim(),
-      release_type: parsed.body.release_type ?? null,
+      release_type: parsed.body.release_type,
       release_year: parsed.body.release_year ?? null,
       cover_r2_key: parsed.body.cover_r2_key ?? null,
     };
