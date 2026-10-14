@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import app, { type D1Database, type D1PreparedStatement } from "../src/index";
+import app, { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
 
 function stmt(value: unknown): D1PreparedStatement {
   if (value instanceof Error) {
@@ -43,6 +43,19 @@ describe("GET /healthz", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({
       error: { code: "d1_unavailable", message: "boom" },
+    });
+  });
+
+  it("returns the uniform error shape with 500 for thrown errors", async () => {
+    const fresh = createApp();
+    fresh.get("/__test_throw", () => {
+      throw new Error("kaboom");
+    });
+    const db = stubDb({ ok: 1 });
+    const res = await fresh.request("/__test_throw", {}, { DB: db });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: { code: "internal", message: "kaboom" },
     });
   });
 
