@@ -15,12 +15,8 @@ export type { App } from "./lib/http";
 // Compat: normalizeName was exported from the pre-split module.
 export { normalizeName } from "./lib/http";
 
-// Browser entry point is the apex domain (ADR-0004); www serves the same
-// SPA, so both origins are allowed. Workers.dev preview origins are NOT
-// listed — preview builds point at the production API, and browser fetches
-// from a preview origin will not carry an allow-origin header (see #55
-// follow-up). All read endpoints are public; ingestion writes stay gated
-// by INGESTION_TOKEN regardless of origin.
+// Apex + www serve the same SPA (ADR-0004). Preview origins are NOT
+// allowed (see #55 follow-up); ingestion writes stay gated by INGESTION_TOKEN.
 const FRONTEND_ORIGINS = ["https://skramz.org", "https://www.skramz.org"];
 
 export function createApp(): App {

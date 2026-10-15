@@ -2,44 +2,28 @@
 
 ## Worker
 
-- **Name:** `skramz-web` — the system's only frontend host (Cloudflare
-  Workers Static Assets, free tier; static-asset requests are
-  free/unlimited, unlike SSR which would burn the 100k req/day + 10ms
-  CPU budget).
-- **Config:** `web/wrangler.toml` (TOML, mirroring `api/wrangler.toml`).
-  Assets-only Worker: no `main` entry. `[assets] directory = "./dist"`
-  with `not_found_handling = "single-page-application"`, so client-side
-  routes (react-router) serve `index.html`.
-- **Build:** `vite build` → `dist/` (the `@cloudflare/vite-plugin`
-  `cloudflare()` plugin in `web/vite.config.ts` owns dev; deploy uploads
-  `dist/`). Local check: `pnpm build` in `web/` + `wrangler deploy
-  --dry-run`.
-- **Deploy:** `.github/workflows/deploy-web.yml`. Push to `main`
-  touching `web/**` (or `workflow_dispatch`) runs the `deploy` job to
-  production — PRs are excluded by condition, so a PR can never promote
-  to the custom domains. Every PR touching `web/**` runs the `preview`
-  job instead: lint → test → build, then `wrangler versions upload`
-  (a non-production version) with the preview URL published to the run
-  summary; fork PRs without Cloudflare secrets skip only the upload.
-  There is no Pages GitHub integration — do not re-add one (it would
-  double-deploy). `deploy-api.yml` stays API-only.
-- **Supersedes:** `infra/pages.md` (the `skramz-web` Pages project is
-  deleted after cutover verification).
+- **Name:** `skramz-web` — the system's only frontend host (Workers
+  Static Assets, free tier).
+- **Config:** `web/wrangler.toml`. Assets-only Worker: no `main` entry.
+  `[assets] directory = "./dist"` with
+  `not_found_handling = "single-page-application"`, so client-side
+  routes serve `index.html`.
+- **Build:** `vite build` → `dist/`. Local check: `pnpm build` in `web/`
+  + `wrangler deploy --dry-run`.
+- **Deploy:** `.github/workflows/deploy-web.yml` — `deploy` job on `main`
+  push to production, `preview` job on PRs (non-production version;
+  fork PRs skip only the upload). No Pages GitHub integration.
+- **Supersedes:** `infra/pages.md` (deleted after cutover verification).
 
 ## Env vars (Production + Preview)
 
 | Var | Value | Notes |
 | --- | ----- | ----- |
-| `VITE_API_URL` | `https://api.skramz.org` | API base (Worker custom domain). Baked at build time: set as the build env in `deploy-web.yml` **and** as the fallback in `web/.env.production` (public URL, safe in git). A preview built without it falls back to the same value. |
+| `VITE_API_URL` | `https://api.skramz.org` | Baked at build time: build env in `deploy-web.yml` + fallback in `web/.env.production` (public URL, safe in git). |
 
-The `NEXT_PUBLIC_*` prefix died with Next.js (ADR-0004 Q3); no
-`envPrefix`/`define` shim carries it forward. `api.ts` `API_URL` still
-falls back to `https://api.skramz.org` when the var is unset (local dev
-without env files).
-
-Note: until data pages consume `src/hooks.ts`, the bundle tree-shakes
-the API client out, so the URL is not greppable in `dist/` — the build
-log's `VITE_API_URL=…` echo is the proof it resolved.
+Until data pages consume `src/hooks.ts`, the bundle tree-shakes the API
+client out, so the URL is not greppable in `dist/` — the build log's
+`VITE_API_URL=…` echo is the proof it resolved.
 
 ## Domains
 
@@ -69,18 +53,5 @@ log's `VITE_API_URL=…` echo is the proof it resolved.
 
 ## API CORS (verified in code, not dashboard)
 
-`api/src/index.ts` allows exactly `https://skramz.org` and
-`https://www.skramz.org` via `hono/cors` (maintained proof:
-`api/test/cors.test.ts`). Workers.dev preview origins are NOT allowed —
-a preview deployment's browser fetches to the production API will not
-carry an allow-origin header (accepted; follow-up in #55 if preview data
-fetching is ever needed). Ingestion writes stay gated by
-`INGESTION_TOKEN` regardless of origin.
-
-## Notes
-
-- No secrets in git or in build env values — this project needs none
-  (`CLOUDFLARE_*` stay in GitHub secrets).
-- Free tier: the frontend is fully static (no SSR/RSC/ISR — a future ADR
-  re-opens that). API walls (100k req/day, 10ms CPU, 5M D1 row-reads/day)
-  are recorded in `infra/d1.md` and bind the Worker/D1, not this project.
+Allows exactly apex + `www` (`api/src/index.ts`, tested in
+`api/test/cors.test.ts`); preview origins are NOT allowed (#55 follow-up).

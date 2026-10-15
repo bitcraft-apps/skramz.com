@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
 
-// Issue #55: the Vite SPA at https://skramz.org (apex + www on the Worker)
-// fetches the API cross-origin, so the API must answer CORS for exactly
-// those two origins — and no CORS headers for anyone else.
+// #55: the SPA fetches cross-origin; CORS must answer exactly apex + www.
 function stmt(): D1PreparedStatement {
   const s: D1PreparedStatement = {
     bind(..._values: unknown[]) {
