@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Bindings, D1Database, D1PreparedStatement } from "./lib/db";
 import { publicInternalError } from "./lib/http";
 import type { App } from "./lib/http";
@@ -14,8 +15,14 @@ export type { App } from "./lib/http";
 // Compat: normalizeName was exported from the pre-split module.
 export { normalizeName } from "./lib/http";
 
+// Apex + www serve the same SPA (ADR-0004). Preview origins are NOT
+// allowed (see #55 follow-up); ingestion writes stay gated by INGESTION_TOKEN.
+const FRONTEND_ORIGINS = ["https://skramz.org", "https://www.skramz.org"];
+
 export function createApp(): App {
   const app = new Hono<{ Bindings: Bindings }>();
+
+  app.use("/*", cors({ origin: FRONTEND_ORIGINS }));
 
   registerHealth(app);
   registerBands(app);

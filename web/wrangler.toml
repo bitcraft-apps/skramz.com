@@ -1,0 +1,15 @@
+# Vite SPA on Workers Static Assets (ADR-0004). Assets-only: no Worker entry.
+name = "skramz-web"
+compatibility_date = "2026-10-01"
+
+workers_dev = true
+
+# Cutover detaches these hosts from the Pages project first (issue #55).
+routes = [
+  { pattern = "skramz.org", custom_domain = true },
+  { pattern = "www.skramz.org", custom_domain = true },
+]
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"

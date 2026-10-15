@@ -1,0 +1,112 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/deploy-web.yml']
+  pull_request:
+    branches: [main]
+    paths: ['web/**', '.github/workflows/deploy-web.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Static Assets
+    # Production only: PRs must never promote to the custom domains.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - name: Build (VITE_API_URL baked at build time)
+        run: |
+          echo "VITE_API_URL=$VITE_API_URL"
+          pnpm build
+        env:
+          VITE_API_URL: https://api.skramz.org
+      - name: Deploy Worker (Static Assets)
+        run: pnpm exec wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+  preview:
+    name: Preview Version
+    # Every PR touching web/ uploads a non-production version so reviewers
+    # get a workers.dev preview URL; production is untouched. Fork PRs have
+    # no Cloudflare secrets, so the upload is skipped there (build still gates).
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - name: Build (VITE_API_URL baked at build time)
+        run: |
+          echo "VITE_API_URL=$VITE_API_URL"
+          pnpm build
+        env:
+          VITE_API_URL: https://api.skramz.org
+      - name: Upload preview version (non-production)
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "No Cloudflare secrets (fork PR) — skipping upload; build above still gates."
+            exit 0
+          fi
+          # pipefail so a failed upload fails the job (tee would mask it).
+          # Exception: the Worker does not exist until the first main deploy,
+          # and versions cannot upload before that — expected, not a failure.
+          set -o pipefail
+          if pnpm exec wrangler versions upload 2>&1 | tee preview-upload.log; then
+            exit 0
+          fi
+          if grep -q "does not yet exist" preview-upload.log; then
+            echo "Worker skramz-web has no production deploy yet — previews unlock after the first main deploy. Build above still gates."
+            exit 0
+          fi
+          exit 1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Publish preview URL
+        run: |
+          if [ ! -f preview-upload.log ]; then
+            echo "Upload was skipped (no secrets) — no preview URL."
+            exit 0
+          fi
+          URL=$(grep -oE 'https://[^ ]*workers\.dev[^ ]*' preview-upload.log | head -1)
+          if [ -n "$URL" ]; then echo "Preview: $URL" >> "$GITHUB_STEP_SUMMARY"; else cat preview-upload.log >> "$GITHUB_STEP_SUMMARY"; fi
