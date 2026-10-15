@@ -19,10 +19,10 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function stubApi() {
+function stubApi(payload: unknown = bandPayload) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({ ok: true, json: async () => bandPayload }) as Response),
+    vi.fn(async () => ({ ok: true, json: async () => payload }) as Response),
   );
 }
 
@@ -64,17 +64,11 @@ describe("encyclopedia band view", () => {
   });
 
   it("renders nothing image-like when keys are missing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => ({
-        ok: true,
-        json: async () => ({
-          ...bandPayload,
-          data: { ...bandPayload.data, photo_r2_key: null },
-          releases: [{ id: "r1", title: "Probe Release", cover_r2_key: null }],
-        }),
-      }) as Response),
-    );
+    stubApi({
+      ...bandPayload,
+      data: { ...bandPayload.data, photo_r2_key: null },
+      releases: [{ id: "r1", title: "Probe Release", cover_r2_key: null }],
+    });
     renderBand();
     await screen.findByText("Probe Band");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();

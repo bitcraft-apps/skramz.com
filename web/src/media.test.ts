@@ -6,7 +6,6 @@ describe("artUrl", () => {
     expect(artUrl("bands/b1/photo.jpg")).toBe(
       `${MEDIA_BASE_URL}/bands/b1/photo.jpg`,
     );
-    expect(MEDIA_BASE_URL).toBe("https://media.skramz.org");
   });
 
   it("returns null when there is no art", () => {

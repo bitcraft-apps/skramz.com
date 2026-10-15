@@ -1,5 +1,4 @@
-// Public R2 media host. Set to https://media.skramz.org in .env.production;
-// override locally with a .env file if needed.
+// Public R2 media host (set in .env.production; override locally with .env).
 export const MEDIA_BASE_URL =
   import.meta.env.VITE_MEDIA_URL ?? "https://media.skramz.org";
 

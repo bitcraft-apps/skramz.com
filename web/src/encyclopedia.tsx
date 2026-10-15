@@ -7,7 +7,6 @@ function str(record: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-// GET /api/bands/:id — photo from R2, members, releases with covers.
 export function BandView() {
   const { id } = useParams();
   const { data, isSuccess } = useBand(id);
@@ -42,7 +41,6 @@ export function BandView() {
   );
 }
 
-// GET /api/members/:id — band history with each band's R2 photo.
 export function MemberView() {
   const { id } = useParams();
   const { data, isSuccess } = useMember(id);
@@ -66,7 +64,6 @@ export function MemberView() {
   );
 }
 
-// GET /api/releases/:id — cover from R2, embedded media links.
 export function ReleaseView() {
   const { id } = useParams();
   const { data, isSuccess } = useRelease(id);
