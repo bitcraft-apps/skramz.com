@@ -1,13 +1,13 @@
 # skramz.org — agent conventions
 
-Monorepo: `web/` (Next.js) + `api/` (Hono Worker + D1) + `cli-agent/` (Go) + `db/` (seeds), orchestrated via Taskfile. Cost rule: Cloudflare free tier only; no VPS, no paid services.
+Monorepo: `web/` (Vite + React SPA) + `api/` (Hono Worker + D1) + `cli-agent/` (Go) + `db/` (seeds), orchestrated via Taskfile. Cost rule: Cloudflare free tier only; no VPS, no paid services.
 
 ## Commands
 
 ```bash
 task dev          # API worker (wrangler dev) + web
 task dev:api      # Worker on :8787 (wrangler dev, D1 local)
-task dev:web      # Next.js on :3000
+task dev:web      # Vite on :5173
 task test         # all tests
 task test:api     # vitest in api/
 task test:web     # vitest in web/
@@ -18,7 +18,7 @@ task migrate      # apply D1 migrations locally
 ## Constraints (binding)
 
 - API: TypeScript + Hono on Workers, D1 binding named `DB`, raw-SQL migrations in `api/migrations/` (keep SQL portable — no Postgres-isms). Free limits are hard walls: 100k req/day, 10ms CPU, 5M D1 row-reads/day.
-- Next.js App Router with layout persistence (uninterrupted audio). TanStack Query for server state, Zustand for client UI state only. No Redux.
+- Vite SPA with layout persistence (uninterrupted audio). TanStack Query for server state, Zustand for client UI state only. No Redux.
 - Tailwind CSS v4, 90s DIY Zine Brutalism, lightweight DOM.
 - Graph via WebGL (react-force-graph or Sigma.js), 60fps target, 500-node cap.
 - Relationships via `band_members` join table + Recursive CTEs (SQLite `WITH RECURSIVE`). No graph DB.
