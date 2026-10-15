@@ -15,14 +15,34 @@ export type { App } from "./lib/http";
 // Compat: normalizeName was exported from the pre-split module.
 export { normalizeName } from "./lib/http";
 
-// Apex + www serve the same SPA (ADR-0004). Preview origins are NOT
-// allowed (see #55 follow-up); ingestion writes stay gated by INGESTION_TOKEN.
-const FRONTEND_ORIGINS = ["https://skramz.org", "https://www.skramz.org"];
+// Apex + www serve the same SPA (ADR-0004). PR preview versions
+// (deploy-web.yml `preview` job) serve from version URLs shaped
+// `<version>-skramz-web.s-graczyk.workers.dev` and call the production
+// API, so those origins are allowed too (#63). Anything else — including
+// other workers' hosts — gets no allow-origin header. Ingestion writes
+// stay gated by INGESTION_TOKEN regardless of origin.
+const PROD_ORIGINS = ["https://skramz.org", "https://www.skramz.org"];
+const PREVIEW_ORIGIN = /^[a-z0-9-]+-skramz-web\.s-graczyk\.workers\.dev$/;
+
+function allowOrigin(origin: string): string | undefined {
+  if (PROD_ORIGINS.includes(origin)) {
+    return origin;
+  }
+  try {
+    const url = new URL(origin);
+    if (url.protocol === "https:" && PREVIEW_ORIGIN.test(url.hostname)) {
+      return origin;
+    }
+  } catch {
+    // Malformed Origin — deny below.
+  }
+  return undefined;
+}
 
 export function createApp(): App {
   const app = new Hono<{ Bindings: Bindings }>();
 
-  app.use("/*", cors({ origin: FRONTEND_ORIGINS }));
+  app.use("/*", cors({ origin: (origin) => allowOrigin(origin) }));
 
   registerHealth(app);
   registerBands(app);
