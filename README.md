@@ -4,7 +4,7 @@ Centralized encyclopedia, embedded audio streaming hub, and visual relationship 
 
 ## Stack ($0/month, all Cloudflare free tier)
 
-- **Frontend:** Next.js (App Router) → Cloudflare Pages
+- **Frontend:** Vite + React SPA (client-side routing) → Workers Static Assets
 - **Backend:** TypeScript Worker (Hono) + D1 (SQLite) → Cloudflare Workers
 - **Media:** Cloudflare R2 (cover art, band photos)
 - **State:** TanStack Query (server state) + Zustand (audio player, UI toggles). Redux forbidden.
@@ -27,7 +27,7 @@ See [AGENTS.md](AGENTS.md) for commands and conventions.
 ## Structure
 
 ```
-web/          # Next.js frontend (Cloudflare Pages)
+web/          # Vite + React SPA (Workers Static Assets)
 api/          # Hono/TS Worker + D1 migrations (Cloudflare Workers)
 cli-agent/    # Go ingestion CLI (local tool: MusicBrainz/Discogs → R2 → API)
 db/           # D1 seed data (migrations live in api/migrations/)

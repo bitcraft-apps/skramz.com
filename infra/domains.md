@@ -4,7 +4,7 @@
 
 - **Domain:** `skramz.org` — registered at Cloudflare Registrar
   (at-cost, auto-renew on; confirm in dashboard → Domain Registration).
-- **Zone/account:** same Cloudflare account as Pages/Workers/D1/R2
+- **Zone/account:** same Cloudflare account as Workers/D1/R2
   (free tier). Nameservers are Cloudflare-assigned; DNS is managed
   in dashboard → `skramz.org` → DNS.
 - `skramz.com` was unavailable (registered 2007, parked); `.org` chosen
