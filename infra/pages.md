@@ -1,5 +1,10 @@
 # Pages project + preview deploys (issue #3)
 
+> **SUPERSEDED by `infra/web-hosting.md` (issue #55, ADR-0004).** The
+> frontend is a Vite SPA on Workers Static Assets; the `skramz-web`
+> Pages project is deleted after cutover verification. This file is
+> kept as history only — do not follow its setup steps.
+
 ## Project
 
 - **Name:** `skramz-web` — the system's only frontend host (Cloudflare
