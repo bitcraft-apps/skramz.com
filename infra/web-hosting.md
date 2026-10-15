@@ -14,9 +14,13 @@
   `cloudflare()` plugin in `web/vite.config.ts` owns dev; deploy uploads
   `dist/`). Local check: `pnpm build` in `web/` + `wrangler deploy
   --dry-run`.
-- **Deploy:** `.github/workflows/deploy-web.yml` (push to `main` touching
-  `web/**` deploys production; `workflow_dispatch` for manual runs;
-  every PR gets a `*.workers.dev` preview via `workers_dev = true`).
+- **Deploy:** `.github/workflows/deploy-web.yml`. Push to `main`
+  touching `web/**` (or `workflow_dispatch`) runs the `deploy` job to
+  production — PRs are excluded by condition, so a PR can never promote
+  to the custom domains. Every PR touching `web/**` runs the `preview`
+  job instead: lint → test → build, then `wrangler versions upload`
+  (a non-production version) with the preview URL published to the run
+  summary; fork PRs without Cloudflare secrets skip only the upload.
   There is no Pages GitHub integration — do not re-add one (it would
   double-deploy). `deploy-api.yml` stays API-only.
 - **Supersedes:** `infra/pages.md` (the `skramz-web` Pages project is
