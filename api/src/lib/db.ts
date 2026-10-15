@@ -13,5 +13,6 @@ export interface D1Database {
 
 export type Bindings = {
   DB: D1Database;
+  MEDIA?: unknown; // Optional: no route uses R2 yet.
   INGESTION_TOKEN?: string;
 };
