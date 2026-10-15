@@ -87,7 +87,18 @@ jobs:
             echo "No Cloudflare secrets (fork PR) — skipping upload; build above still gates."
             exit 0
           fi
-          pnpm exec wrangler versions upload 2>&1 | tee preview-upload.log
+          # pipefail so a failed upload fails the job (tee would mask it).
+          # Exception: the Worker does not exist until the first main deploy,
+          # and versions cannot upload before that — expected, not a failure.
+          set -o pipefail
+          if pnpm exec wrangler versions upload 2>&1 | tee preview-upload.log; then
+            exit 0
+          fi
+          if grep -q "does not yet exist" preview-upload.log; then
+            echo "Worker skramz-web has no production deploy yet — previews unlock after the first main deploy. Build above still gates."
+            exit 0
+          fi
+          exit 1
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
