@@ -44,18 +44,9 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
   pause: () => set({ isPlaying: false }),
 
   toggle: () => {
-    const { isPlaying, current, queue } = get();
-    if (isPlaying) {
-      set({ isPlaying: false });
-      return;
-    }
-    if (current !== null) {
-      set({ isPlaying: true });
-      return;
-    }
-    if (queue.length > 0) {
-      set({ current: queue[0], isPlaying: true });
-    }
+    const { isPlaying, play, pause } = get();
+    if (isPlaying) pause();
+    else play();
   },
 
   setVolume: (v) => set({ volume: clampVolume(v) }),
