@@ -1,8 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Link, Route, Routes } from "react-router-dom";
 import { PlayerSlot } from "./PlayerSlot";
-
-const queryClient = new QueryClient();
+import { queryClient } from "./queryClient";
 
 function Home() {
   return <main>home</main>;
