@@ -8,65 +8,46 @@ function str(record: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-// Normalize a media_links row. Rows without an embed_url stay playable via
-// their outbound url (fallback link); only embed URLs enter the queue.
-type ListenItem = {
-  id: string;
-  provider: string;
-  url: string;
-  embedUrl: string | null;
-};
-
-function listenItems(links: Record<string, unknown>[]): ListenItem[] {
-  const items: ListenItem[] = [];
-  for (const link of links) {
-    if (typeof link.id !== "string" || typeof link.url !== "string") continue;
-    const embed =
-      typeof link.embed_url === "string" && link.embed_url.trim()
-        ? link.embed_url
-        : null;
-    items.push({
-      id: link.id,
-      provider: str(link, "provider") || "listen",
-      url: link.url,
-      embedUrl: embed,
-    });
-  }
-  return items;
-}
-
 // Shared listen section for band + release views. Zero links render a
-// graceful empty state instead of an empty list.
+// graceful empty state instead of an empty list. Rows without an embed_url
+// stay playable via their outbound url (fallback link); only embed URLs
+// enter the queue.
 function ListenList({ links }: { links: Record<string, unknown>[] }) {
-  const items = listenItems(links);
+  const items = links.filter(
+    (link) => typeof link.id === "string" && typeof link.url === "string",
+  );
   if (items.length === 0) return <p>No streams yet.</p>;
+  const embedUrl = (link: Record<string, unknown>): string | null =>
+    typeof link.embed_url === "string" && link.embed_url.trim()
+      ? link.embed_url
+      : null;
   const playFrom = (start: string) => {
     const api = usePlayerStore.getState();
     for (const item of items) {
-      if (item.embedUrl) api.enqueue(item.embedUrl);
+      const embed = embedUrl(item);
+      if (embed) api.enqueue(embed);
     }
     api.play(start);
   };
   return (
     <ul>
-      {items.map((item) =>
-        item.embedUrl ? (
-          <li key={item.id}>
-            <button
-              type="button"
-              onClick={() => item.embedUrl && playFrom(item.embedUrl)}
-            >
-              play {item.provider}
+      {items.map((item) => {
+        const embed = embedUrl(item);
+        const provider = str(item, "provider") || "listen";
+        return embed ? (
+          <li key={str(item, "id")}>
+            <button type="button" onClick={() => playFrom(embed)}>
+              play {provider}
             </button>
           </li>
         ) : (
-          <li key={item.id}>
-            <a href={item.url} target="_blank" rel="noreferrer">
-              {item.provider}
+          <li key={str(item, "id")}>
+            <a href={str(item, "url")} target="_blank" rel="noreferrer">
+              {provider}
             </a>
           </li>
-        ),
-      )}
+        );
+      })}
     </ul>
   );
 }

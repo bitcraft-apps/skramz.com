@@ -91,10 +91,9 @@ export const usePlayerStore = create<PlayerState>()(
     }),
     {
       name: "skramz-player",
+      // isPlaying is excluded above, so it always rehydrates as false
+      // (browsers block autoplay) from the initial state.
       partialize: (s) => ({ queue: s.queue, current: s.current, volume: s.volume }),
-      onRehydrateStorage: () => (s) => {
-        if (s) s.isPlaying = false;
-      },
     },
   ),
 );
