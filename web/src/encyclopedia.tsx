@@ -1,6 +1,10 @@
+import { Suspense, lazy } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useBand, useMember, useRelease } from "./hooks";
 import { artUrl } from "./media";
+
+// Graph loads only with band pages; the player slot never unmounts.
+const GraphView = lazy(() => import("./GraphView"));
 
 function str(record: Record<string, unknown>, key: string): string {
   const value = record[key];
@@ -17,6 +21,9 @@ export function BandView() {
     <main>
       <h1>{str(band, "name")}</h1>
       {photo && <img src={photo} alt={`${str(band, "name")} photo`} />}
+      <Suspense fallback={<section aria-label="band graph">loading graph</section>}>
+        <GraphView id={str(band, "id")} />
+      </Suspense>
       <h2>members</h2>
       <ul>
         {data.members.map((m) => (

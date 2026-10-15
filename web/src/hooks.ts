@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { API_URL, ApiError } from "./api";
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -63,11 +63,13 @@ export function useRelease(id: string | undefined) {
   });
 }
 
-// GET /api/bands/:id/graph?depth= — multi-hop relationship tree.
+// GET /api/bands/:id/graph?depth= — multi-hop relationship tree. Keeps the
+// previous depth's graph visible while refetching.
 export function useBandGraph(id: string | undefined, depth = 3) {
   return useQuery({
     queryKey: ["band-graph", id, depth],
     enabled: !!id,
+    placeholderData: keepPreviousData,
     queryFn: () =>
       fetchJson<BandGraph>(
         `/api/bands/${encodeURIComponent(id!)}/graph?depth=${depth}`,
