@@ -4,17 +4,14 @@ import { useNavigate } from "react-router-dom";
 import { useBandGraph } from "./hooks";
 import { useGraphUIStore } from "./stores/graphUIStore";
 
-// Mirror of the API GRAPH_LIMIT: the endpoint never returns more than this
-// many edges, and the view never renders more than this many nodes.
-export const GRAPH_NODE_CAP = 500;
+// Never render more than this many nodes; the API already bounds result rows.
+const GRAPH_NODE_CAP = 500;
 
 type GraphNode = { id: string; name: string };
 type GraphLink = { source: string; target: string; via: string };
 
-// Relationship map for one band: nodes are bands linked by shared members,
-// edges carry the shared member name as the via-label. Depth state lives in
-// the graph UI store so the control refetches through useBandGraph without
-// unmounting the route; node click navigates client-side (no page reload).
+// Band relationship map: bands linked by shared members (via labels).
+// Node clicks navigate client-side.
 export function GraphView({ id }: { id: string }) {
   const depth = useGraphUIStore((s) => s.depth);
   const setDepth = useGraphUIStore((s) => s.setDepth);

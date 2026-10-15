@@ -3,8 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useBand, useMember, useRelease } from "./hooks";
 import { artUrl } from "./media";
 
-// Graph renderer stays out of the initial bundle: relationship maps load
-// only when a band page opens, and the player slot never unmounts.
+// Graph loads only with band pages; the player slot never unmounts.
 const GraphView = lazy(() => import("./GraphView"));
 
 function str(record: Record<string, unknown>, key: string): string {

@@ -64,8 +64,7 @@ export function useRelease(id: string | undefined) {
 }
 
 // GET /api/bands/:id/graph?depth= — multi-hop relationship tree. Keeps the
-// previous depth's graph on the screen while the new depth refetches, so the
-// depth control never flashes an empty state or reloads the page.
+// previous depth's graph visible while refetching.
 export function useBandGraph(id: string | undefined, depth = 3) {
   return useQuery({
     queryKey: ["band-graph", id, depth],
