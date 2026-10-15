@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+/* 90s DIY Zine Brutalism tokens (see DESIGN.md). */
+@theme {
+  --font-zine: "Courier New", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-ink: #0a0a0a;
+  --color-paper: #fafafa;
+  --color-acid: #c8ff00;
+
+  --radius-zine: 0px;
+}
+
+body {
+  font-family: var(--font-zine);
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+/* Halftone/dither image treatment: brutalist print texture. */
+.zine-halftone {
+  background-image: radial-gradient(
+    circle,
+    currentcolor 1px,
+    transparent 1.5px
+  );
+  background-size: 6px 6px;
+}
+
+.zine-border {
+  border: 3px solid var(--color-ink);
+  border-radius: var(--radius-zine);
+}
