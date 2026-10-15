@@ -8,7 +8,8 @@
   (free tier). Nameservers are Cloudflare-assigned; DNS is managed
   in dashboard → `skramz.org` → DNS.
 - `skramz.com` was unavailable (registered 2007, parked); `.org` chosen
-  2026-10-13. GitHub repo/local folder names are unchanged.
+  2026-10-13. GitHub repo renamed to `bitcraft-apps/skramz.org`
+  2026-10-15 (issue #57); the old slug redirects.
 
 ## Hostnames
 
@@ -51,4 +52,4 @@
 5. GitHub secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`,
    `D1_DATABASE_ID`) must be set for `.github/workflows/deploy-api.yml`
    (push to `main` touching `api/**`, or manual dispatch) to deploy.
-   Check with `gh secret list --repo bitcraft-apps/skramz.com`.
+   Check with `gh secret list --repo bitcraft-apps/skramz.org`.
