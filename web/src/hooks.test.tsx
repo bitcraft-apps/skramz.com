@@ -79,6 +79,21 @@ describe("server-state hooks", () => {
     );
   });
 
+  it("useSearch stays idle for queries shorter than 2 characters", async () => {
+    const fetchMock = stubFetch({ hits: [], nextCursor: null });
+
+    const client = createQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <SearchProbe q="a" />
+      </QueryClientProvider>,
+    );
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByText("loading")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("two mounts of useSearch share one encoded request", async () => {
     const fetchMock = stubFetch({ hits: [], nextCursor: null });
 

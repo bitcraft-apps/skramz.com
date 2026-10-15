@@ -21,9 +21,10 @@
 | --- | ----- | ----- |
 | `VITE_API_URL` | `https://api.skramz.org` | Baked at build time: build env in `deploy-web.yml` + fallback in `web/.env.production` (public URL, safe in git). |
 
-Until data pages consume `src/hooks.ts`, the bundle tree-shakes the API
-client out, so the URL is not greppable in `dist/` — the build log's
-`VITE_API_URL=…` echo is the proof it resolved.
+The home route (`/`, search-first gateway in `src/App.tsx`) consumes
+`src/hooks.ts` (`useBands` idle strip + `useSearch`), so the API client
+is bundled and the URL is greppable in `dist/` — the build log's
+`VITE_API_URL=…` echo remains the proof it resolved.
 
 ## Domains
 

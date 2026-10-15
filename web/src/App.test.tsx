@@ -1,12 +1,21 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { usePlayerStore } from "./stores/playerStore";
 
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      ({ ok: true, json: async () => ({ data: [], nextCursor: null }) }) as Response,
+  );
+});
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   localStorage.clear();
   usePlayerStore.setState({
     queue: [],
@@ -37,9 +46,7 @@ describe("layout persistence", () => {
     expect(screen.getByTestId("player-slot")).toBe(slot);
 
     await user.click(screen.getByRole("link", { name: "home" }));
-    expect(
-      await screen.findByText("home", { selector: "main" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("searchbox")).toBeInTheDocument();
     expect(screen.getByTestId("player-slot")).toBe(slot);
   });
 
