@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Link, Route, Routes } from "react-router-dom";
 import { PlayerSlot } from "./PlayerSlot";
+import { BandView, MemberView, ReleaseView } from "./encyclopedia";
 import { queryClient } from "./queryClient";
 
 function Home() {
@@ -23,6 +24,9 @@ export function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/bands/:id" element={<BandView />} />
+        <Route path="/members/:id" element={<MemberView />} />
+        <Route path="/releases/:id" element={<ReleaseView />} />
       </Routes>
     </QueryClientProvider>
   );
