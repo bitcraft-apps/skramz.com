@@ -3,17 +3,21 @@
 ## Project
 
 - **Name:** `skramz-web` — the system's only frontend host (Cloudflare
-  Pages, free tier).
+  Pages, free tier). Live at `https://skramz-web.pages.dev`, connected
+  to `bitcraft-apps/skramz.com` (production branch `main`, PR previews
+  on).
 - **Root:** `web/` (Next.js App Router; scaffolded under issue #11).
   Status: **blocked** — `web/` holds only `.gitkeep`, so there is
-  nothing to deploy yet.
+  nothing to deploy yet (0 deployments; the first build will fail
+  until #11 lands).
 - **Created with:** dashboard → Workers & Pages → Create → Pages →
-  Connect to Git (`bitcraft-apps/skramz.com`, production branch `main`).
-  There is no GitHub workflow for Pages deploys; the Pages GitHub
-  integration owns them — do not add one (it would double-deploy).
-  `deploy-api.yml` stays Worker-only.
+  Connect to Git. There is no GitHub workflow for Pages deploys; the
+  Pages GitHub integration owns them — do not add one (it would
+  double-deploy). `deploy-api.yml` stays Worker-only.
 - **Build:** root directory `web/`, build command `pnpm build`
-  (= `task build:web`), Node `22` + pnpm `9.15.4` to match `web-ci`.
+  (= `task build:web`), output directory `out`, build caching on.
+  Node `22` + pnpm `9.15.4` (as `NODE_VERSION`/`PNPM_VERSION` on both
+  Production and Preview) to match `web-ci`.
 
 ## Env vars (Production + Preview)
 
@@ -31,11 +35,14 @@ at `api.skramz.com` will fail DNS.
 
 | Host | How attached | Status |
 | ---- | ------------ | ------ |
-| `skramz.org` | Pages → Custom domains | Blocked — needs #11 scaffold + first prod build |
-| `www.skramz.org` | Same Pages project | Blocked — same as above |
+| `skramz.org` | Pages → Custom domains (CNAME → `skramz-web.pages.dev`, proxied) | Attached; SSL auto-provisioning, not serving yet (no deployment) |
+| `www.skramz.org` | Same Pages project | Attached; same as above |
 
-Attach the domains only after the first successful production build;
-certificates are automatic. Frontend origin is `https://skramz.org`.
+Certificates are automatic (Google CA). Observed right after setup:
+`skramz.org`, `www.skramz.org`, and `skramz-web.pages.dev` all return
+HTTP 522 with a valid cert — expected with 0 deployments. Frontend
+origin is `https://skramz.org`; it serves 200 only after the first
+successful production build (needs #11).
 
 ## Preview behavior (ADR-0001 precedent)
 
@@ -56,14 +63,15 @@ curl https://api.skramz.org/healthz  # 200 {"ok":true,"db":1}
 # (3) this file exists with project/build/env/domain record
 ```
 
-## Manual dashboard steps (account owner only)
+## Dashboard setup (done by account owner)
 
-1. Create the Pages project as above; confirm production branch `main`
-   and PR previews on.
-2. Set `NEXT_PUBLIC_API_URL=https://api.skramz.org` for Production
+1. ✅ Pages project `skramz-web` created via Connect to Git;
+   production branch `main`, PR previews on.
+2. ✅ `NEXT_PUBLIC_API_URL=https://api.skramz.org` set for Production
    **and** Preview environments.
-3. After the first successful prod build, attach `skramz.org` and
-   `www.skramz.org` under Pages → Custom domains.
+3. ✅ `skramz.org` and `www.skramz.org` attached under Pages →
+   Custom domains (ahead of the first build; they serve traffic only
+   after #11 lands and the first production build succeeds).
 
 ## Notes
 
