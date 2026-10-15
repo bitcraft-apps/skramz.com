@@ -4,7 +4,7 @@
 
 - **Name:** `skramz-web` — the system's only frontend host (Cloudflare
   Pages, free tier). Live at `https://skramz-web.pages.dev`, connected
-  to `bitcraft-apps/skramz.com` (production branch `main`, PR previews
+  to `bitcraft-apps/skramz.org` (production branch `main`, PR previews
   on).
 - **Root:** `web/` (Next.js App Router; scaffolded under issue #11).
   Status: **blocked** — `web/` holds only `.gitkeep`, so there is
