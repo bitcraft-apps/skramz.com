@@ -1,10 +1,74 @@
 import { Link, useParams } from "react-router-dom";
 import { useBand, useMember, useRelease } from "./hooks";
 import { artUrl } from "./media";
+import { usePlayerStore } from "./stores/playerStore";
 
 function str(record: Record<string, unknown>, key: string): string {
   const value = record[key];
   return typeof value === "string" ? value : "";
+}
+
+// Normalize a media_links row. Rows without an embed_url stay playable via
+// their outbound url (fallback link); only embed URLs enter the queue.
+type ListenItem = {
+  id: string;
+  provider: string;
+  url: string;
+  embedUrl: string | null;
+};
+
+function listenItems(links: Record<string, unknown>[]): ListenItem[] {
+  const items: ListenItem[] = [];
+  for (const link of links) {
+    if (typeof link.id !== "string" || typeof link.url !== "string") continue;
+    const embed =
+      typeof link.embed_url === "string" && link.embed_url.trim()
+        ? link.embed_url
+        : null;
+    items.push({
+      id: link.id,
+      provider: str(link, "provider") || "listen",
+      url: link.url,
+      embedUrl: embed,
+    });
+  }
+  return items;
+}
+
+// Shared listen section for band + release views. Zero links render a
+// graceful empty state instead of an empty list.
+function ListenList({ links }: { links: Record<string, unknown>[] }) {
+  const items = listenItems(links);
+  if (items.length === 0) return <p>No streams yet.</p>;
+  const playFrom = (start: string) => {
+    const api = usePlayerStore.getState();
+    for (const item of items) {
+      if (item.embedUrl) api.enqueue(item.embedUrl);
+    }
+    api.play(start);
+  };
+  return (
+    <ul>
+      {items.map((item) =>
+        item.embedUrl ? (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => item.embedUrl && playFrom(item.embedUrl)}
+            >
+              play {item.provider}
+            </button>
+          </li>
+        ) : (
+          <li key={item.id}>
+            <a href={item.url} target="_blank" rel="noreferrer">
+              {item.provider}
+            </a>
+          </li>
+        ),
+      )}
+    </ul>
+  );
 }
 
 export function BandView() {
@@ -37,6 +101,8 @@ export function BandView() {
           );
         })}
       </ul>
+      <h2>listen</h2>
+      <ListenList links={data.media_links} />
     </main>
   );
 }
@@ -74,11 +140,7 @@ export function ReleaseView() {
       <h1>{str(data.data, "title")}</h1>
       {cover && <img src={cover} alt={`${str(data.data, "title")} cover`} />}
       <h2>listen</h2>
-      <ul>
-        {data.media_links.map((m) => (
-          <li key={str(m, "id")}>{str(m, "provider")}</li>
-        ))}
-      </ul>
+      <ListenList links={data.media_links} />
     </main>
   );
 }
