@@ -1,9 +1,10 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 export type PlayerState = {
-  /** Ordered queue of track/band ids. */
+  /** Ordered queue of media_links embed URLs (embeds only, never audio bytes). */
   queue: string[];
-  /** Currently selected id, always a member of queue or null. */
+  /** Currently selected embed URL, always a member of queue or null. */
   current: string | null;
   isPlaying: boolean;
   /** 0..1, clamped on write. */
@@ -23,8 +24,12 @@ const clampVolume = (v: number): number =>
   Number.isNaN(v) ? 0 : Math.min(1, Math.max(0, v));
 
 // Client-only playback UI state. Never holds server data — band/release
-// payloads stay in React Query (see src/hooks.ts).
-export const usePlayerStore = create<PlayerState>()((set, get) => ({
+// payloads stay in React Query (see src/hooks.ts). Queue, current track,
+// and volume persist to localStorage so they survive reload; isPlaying
+// always rehydrates as false (browsers block autoplay).
+export const usePlayerStore = create<PlayerState>()(
+  persist(
+    (set, get) => ({
   queue: [],
   current: null,
   isPlaying: false,
@@ -83,4 +88,12 @@ export const usePlayerStore = create<PlayerState>()((set, get) => ({
     }),
 
   clear: () => set({ queue: [], current: null, isPlaying: false }),
-}));
+    }),
+    {
+      name: "skramz-player",
+      // isPlaying is excluded above, so it always rehydrates as false
+      // (browsers block autoplay) from the initial state.
+      partialize: (s) => ({ queue: s.queue, current: s.current, volume: s.volume }),
+    },
+  ),
+);

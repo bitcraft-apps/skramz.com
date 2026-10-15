@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useBand, useMember, useRelease } from "./hooks";
 import { artUrl } from "./media";
+import { usePlayerStore } from "./stores/playerStore";
 
 // Graph loads only with band pages; the player slot never unmounts.
 const GraphView = lazy(() => import("./GraphView"));
@@ -9,6 +10,50 @@ const GraphView = lazy(() => import("./GraphView"));
 function str(record: Record<string, unknown>, key: string): string {
   const value = record[key];
   return typeof value === "string" ? value : "";
+}
+
+// Shared listen section for band + release views. Zero links render a
+// graceful empty state instead of an empty list. Rows without an embed_url
+// stay playable via their outbound url (fallback link); only embed URLs
+// enter the queue.
+function ListenList({ links }: { links: Record<string, unknown>[] }) {
+  const items = links.filter(
+    (link) => typeof link.id === "string" && typeof link.url === "string",
+  );
+  if (items.length === 0) return <p>No streams yet.</p>;
+  const embedUrl = (link: Record<string, unknown>): string | null =>
+    typeof link.embed_url === "string" && link.embed_url.trim()
+      ? link.embed_url
+      : null;
+  const playFrom = (start: string) => {
+    const api = usePlayerStore.getState();
+    for (const item of items) {
+      const embed = embedUrl(item);
+      if (embed) api.enqueue(embed);
+    }
+    api.play(start);
+  };
+  return (
+    <ul>
+      {items.map((item) => {
+        const embed = embedUrl(item);
+        const provider = str(item, "provider") || "listen";
+        return embed ? (
+          <li key={str(item, "id")}>
+            <button type="button" onClick={() => playFrom(embed)}>
+              play {provider}
+            </button>
+          </li>
+        ) : (
+          <li key={str(item, "id")}>
+            <a href={str(item, "url")} target="_blank" rel="noreferrer">
+              {provider}
+            </a>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }
 
 export function BandView() {
@@ -44,6 +89,8 @@ export function BandView() {
           );
         })}
       </ul>
+      <h2>listen</h2>
+      <ListenList links={data.media_links} />
     </main>
   );
 }
@@ -81,11 +128,7 @@ export function ReleaseView() {
       <h1>{str(data.data, "title")}</h1>
       {cover && <img src={cover} alt={`${str(data.data, "title")} cover`} />}
       <h2>listen</h2>
-      <ul>
-        {data.media_links.map((m) => (
-          <li key={str(m, "id")}>{str(m, "provider")}</li>
-        ))}
-      </ul>
+      <ListenList links={data.media_links} />
     </main>
   );
 }

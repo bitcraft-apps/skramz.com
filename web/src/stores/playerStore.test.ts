@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { usePlayerStore } from "./playerStore";
 
 beforeEach(() => {
+  localStorage.clear();
   usePlayerStore.setState({
     queue: [],
     current: null,
@@ -88,6 +89,20 @@ describe("usePlayerStore transitions", () => {
 
     usePlayerStore.getState().prev();
     expect(usePlayerStore.getState().current).toBe("b1");
+  });
+
+  it("persists queue, current, and volume — but not playback state", () => {
+    const api = usePlayerStore.getState();
+    api.enqueue("https://embed.example/a");
+    api.play("https://embed.example/a");
+    api.setVolume(0.3);
+    const raw = localStorage.getItem("skramz-player");
+    expect(raw).not.toBeNull();
+    const saved = JSON.parse(raw!).state as Record<string, unknown>;
+    expect(saved.queue).toEqual(["https://embed.example/a"]);
+    expect(saved.current).toBe("https://embed.example/a");
+    expect(saved.volume).toBe(0.3);
+    expect(saved.isPlaying).toBeUndefined();
   });
 
   it("clear empties queue and stops but preserves volume", () => {
