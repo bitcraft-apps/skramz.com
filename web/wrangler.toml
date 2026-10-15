@@ -4,7 +4,7 @@ compatibility_date = "2026-10-01"
 
 workers_dev = true
 
-# Cutover detaches these hosts from the Pages project first (issue #55).
+# Cutover detaches these hosts from the Pages project first.
 routes = [
   { pattern = "skramz.org", custom_domain = true },
   { pattern = "www.skramz.org", custom_domain = true },

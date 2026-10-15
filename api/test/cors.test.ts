@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createApp, type D1Database, type D1PreparedStatement } from "../src/index";
 
-// #55: the SPA fetches cross-origin; CORS must answer exactly apex + www.
+// The SPA fetches cross-origin; CORS must answer exactly apex + www.
 function stmt(): D1PreparedStatement {
   const s: D1PreparedStatement = {
     bind(..._values: unknown[]) {
@@ -17,7 +17,7 @@ function stmt(): D1PreparedStatement {
 const db: D1Database = { prepare: (_query: string) => stmt() };
 const app = createApp();
 
-describe("CORS for the skramz.org frontend (#55)", () => {
+describe("CORS for the skramz.org frontend", () => {
   it.each(["https://skramz.org", "https://www.skramz.org"])(
     "echoes Access-Control-Allow-Origin for %s",
     async (origin) => {
@@ -53,7 +53,7 @@ describe("CORS for the skramz.org frontend (#55)", () => {
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 
-  // Issue #63: version preview URLs look like
+  // Version preview URLs look like
   // https://<version>-skramz-web.s-graczyk.workers.dev and call the
   // production API, so they are allowed.
   it.each(["https://abc123-skramz-web.s-graczyk.workers.dev"])(

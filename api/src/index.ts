@@ -18,7 +18,7 @@ export { normalizeName } from "./lib/http";
 // Apex + www serve the same SPA (ADR-0004). PR preview versions
 // (deploy-web.yml `preview` job) serve from version URLs shaped
 // `<version>-skramz-web.s-graczyk.workers.dev` and call the production
-// API, so those origins are allowed too (#63). Anything else — including
+// API, so those origins are allowed too. Anything else — including
 // other workers' hosts — gets no allow-origin header. Ingestion writes
 // stay gated by INGESTION_TOKEN regardless of origin.
 const PROD_ORIGINS = ["https://skramz.org", "https://www.skramz.org"];
