@@ -82,13 +82,20 @@ jobs:
         env:
           VITE_API_URL: https://api.skramz.org
       - name: Upload preview version (non-production)
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
-        run: pnpm exec wrangler versions upload 2>&1 | tee preview-upload.log
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "No Cloudflare secrets (fork PR) — skipping upload; build above still gates."
+            exit 0
+          fi
+          pnpm exec wrangler versions upload 2>&1 | tee preview-upload.log
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Publish preview URL
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
         run: |
+          if [ ! -f preview-upload.log ]; then
+            echo "Upload was skipped (no secrets) — no preview URL."
+            exit 0
+          fi
           URL=$(grep -oE 'https://[^ ]*workers\.dev[^ ]*' preview-upload.log | head -1)
           if [ -n "$URL" ]; then echo "Preview: $URL" >> "$GITHUB_STEP_SUMMARY"; else cat preview-upload.log >> "$GITHUB_STEP_SUMMARY"; fi
