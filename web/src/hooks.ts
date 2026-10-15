@@ -35,6 +35,34 @@ export function useBand(id: string | undefined) {
   });
 }
 
+export type MemberDetail = {
+  data: Record<string, unknown>;
+  bands: Record<string, unknown>[];
+};
+
+export type ReleaseDetail = {
+  data: Record<string, unknown>;
+  media_links: Record<string, unknown>[];
+};
+
+// GET /api/members/:id — member + band history.
+export function useMember(id: string | undefined) {
+  return useQuery({
+    queryKey: ["member", id],
+    enabled: !!id,
+    queryFn: () => fetchJson<MemberDetail>(`/api/members/${encodeURIComponent(id!)}`),
+  });
+}
+
+// GET /api/releases/:id — release + media_links.
+export function useRelease(id: string | undefined) {
+  return useQuery({
+    queryKey: ["release", id],
+    enabled: !!id,
+    queryFn: () => fetchJson<ReleaseDetail>(`/api/releases/${encodeURIComponent(id!)}`),
+  });
+}
+
 // GET /api/bands/:id/graph?depth= — multi-hop relationship tree.
 export function useBandGraph(id: string | undefined, depth = 3) {
   return useQuery({
