@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { Bindings, D1Database, D1PreparedStatement } from "./lib/db";
+import type { Bindings, D1Database, D1PreparedStatement, R2Bucket } from "./lib/db";
 import { publicInternalError } from "./lib/http";
 import type { App } from "./lib/http";
 import { registerBands } from "./routes/bands";
@@ -10,7 +10,7 @@ import { registerMembers } from "./routes/members";
 import { registerReleases } from "./routes/releases";
 import { registerSearch } from "./routes/search";
 
-export type { Bindings, D1Database, D1PreparedStatement };
+export type { Bindings, D1Database, D1PreparedStatement, R2Bucket };
 export type { App } from "./lib/http";
 // Compat: normalizeName was exported from the pre-split module.
 export { normalizeName } from "./lib/http";
