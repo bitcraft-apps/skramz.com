@@ -95,4 +95,25 @@ describe("CORS for the skramz.org frontend", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
+
+  // Local dev loopback (Vite :5173 → worker :8787, plain http). Reads are
+  // public and writes stay bearer-gated.
+  it.each(["http://localhost:5173", "http://127.0.0.1:8787"])(
+    "echoes Access-Control-Allow-Origin for loopback %s",
+    async (origin) => {
+      const res = await app.request("/healthz", { headers: { Origin: origin } }, { DB: db });
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe(origin);
+    },
+  );
+
+  it("sets no allow-origin header for a localhost lookalike", async () => {
+    const res = await app.request(
+      "/healthz",
+      { headers: { Origin: "http://localhost.evil.example" } },
+      { DB: db },
+    );
+    expect(res.status).toBe(200);
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
 });

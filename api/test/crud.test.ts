@@ -108,6 +108,70 @@ describe("issue #8: ingestion-token auth", () => {
     expect(json.data.name_norm).toBe("neil perry");
     expect(db.prepare("SELECT COUNT(*) AS n FROM bands").get()?.n).toBe(3);
   });
+
+  it("valid token links a member to a band (201, edge readable on the band)", async () => {
+    const res = await app.request(
+      "/api/bands/b1/members",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ member_id: "m1", role: "vocals" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { data: Record<string, unknown> };
+    expect(json.data.band_id).toBe("b1");
+    expect(json.data.member_id).toBe("m1");
+    const band = (await (await app.request("/api/bands/b1", {}, ENV)).json()) as {
+      members: Record<string, unknown>[];
+    };
+    expect(band.members.map((m) => m.name)).toContain("Billy Werner");
+  });
+
+  it("linking to a missing band returns 404", async () => {
+    const res = await app.request(
+      "/api/bands/nope/members",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ member_id: "m1" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("linking a missing member returns 404", async () => {
+    const res = await app.request(
+      "/api/bands/b1/members",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ member_id: "nope" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("linking without member_id returns 422", async () => {
+    const res = await app.request(
+      "/api/bands/b1/members",
+      { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: "{}" },
+      ENV,
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it("unauthenticated link returns 401", async () => {
+    const res = await app.request(
+      "/api/bands/b1/members",
+      { method: "POST", body: JSON.stringify({ member_id: "m1" }) },
+      ENV,
+    );
+    expect(res.status).toBe(401);
+  });
 });
 
 describe("issue #8: handler-layer validation", () => {
