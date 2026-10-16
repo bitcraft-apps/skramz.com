@@ -15,7 +15,11 @@ const BANDS = {
   nextCursor: null,
 };
 
-function renderHome(searchPayload: unknown, searchStatus = 200) {
+function renderHome(
+  searchPayload: unknown,
+  searchStatus = 200,
+  bandsPayload: unknown = BANDS,
+) {
   const calls: string[] = [];
   const fetchMock = vi.fn(async (input: unknown) => {
     const url = String(input);
@@ -30,7 +34,7 @@ function renderHome(searchPayload: unknown, searchStatus = 200) {
       }
       return { ok: true, json: async () => searchPayload } as Response;
     }
-    return { ok: true, json: async () => BANDS } as Response;
+    return { ok: true, json: async () => bandsPayload } as Response;
   });
   vi.stubGlobal("fetch", fetchMock);
   render(
@@ -128,6 +132,46 @@ describe("homepage gateway", () => {
     await user.click(screen.getByRole("button", { name: "reset" }));
     expect(screen.getByRole("searchbox")).toHaveValue("");
     expect(await screen.findByRole("link", { name: "Band One" })).toBeInTheDocument();
+  });
+
+  it("skips id-less band records so keys stay unique and links stay valid", async () => {
+    const errors: unknown[][] = [];
+    const consoleSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args);
+      });
+    try {
+      renderHome(
+        { hits: [], nextCursor: null },
+        200,
+        {
+          data: [
+            { id: "b1", name: "Band One" },
+            { name: "Missing Id" },
+            { id: "", name: "Empty Id" },
+          ],
+          nextCursor: null,
+        },
+      );
+
+      expect(
+        await screen.findByRole("link", { name: "Band One" }),
+      ).toHaveAttribute("href", "/bands/b1");
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("link", { name: "Missing Id" }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: "Empty Id" }),
+        ).not.toBeInTheDocument();
+      });
+      expect(errors.flat().join(" ")).not.toContain(
+        "Encountered two children with the same key",
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it("failed searches offer retry and reset", async () => {

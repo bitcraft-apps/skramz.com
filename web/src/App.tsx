@@ -58,7 +58,11 @@ export function Home() {
       items: hits.filter((hit) => hit.type === type).slice(0, GROUP_CAP),
     }))
     .filter((group) => group.items.length > 0);
-  const idleBands = idle.data?.data ?? [];
+  // Skip id-less records: there is nothing to link to, and coercing a
+  // missing id to "" would hand every such row the same React key.
+  const idleBands = (idle.data?.data ?? []).filter(
+    (band) => str(band.id) !== "",
+  );
 
   return (
     <main>
