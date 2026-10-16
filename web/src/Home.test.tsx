@@ -187,6 +187,7 @@ describe("homepage gateway", () => {
           { type: "band", id: "b9", name: "Zig Band" },
           { type: "band", name: "Missing Id" },
           { type: "member", id: "", name: "Empty Id" },
+          { type: "release", id: 7, name: "Num Id" },
           { type: "member", id: "m9", name: "Zig Member" },
         ],
         nextCursor: null,
@@ -207,6 +208,9 @@ describe("homepage gateway", () => {
         ).not.toBeInTheDocument();
         expect(
           screen.queryByRole("link", { name: "Empty Id" }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: "Num Id" }),
         ).not.toBeInTheDocument();
       });
       expect(errors.flat().join(" ")).not.toContain(
