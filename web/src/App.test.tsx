@@ -1,12 +1,21 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { usePlayerStore } from "./stores/playerStore";
 
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    async () =>
+      ({ ok: true, json: async () => ({ data: [], nextCursor: null }) }) as Response,
+  );
+});
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   localStorage.clear();
   usePlayerStore.setState({
     queue: [],
@@ -30,16 +39,14 @@ describe("layout persistence", () => {
 
     await user.click(screen.getByRole("link", { name: "about" }));
     expect(
-      await screen.findByText("about", { selector: "main" }),
+      await screen.findByRole("heading", { name: "about" }),
     ).toBeInTheDocument();
 
     // Same DOM node survived navigation — the player never remounted.
     expect(screen.getByTestId("player-slot")).toBe(slot);
 
     await user.click(screen.getByRole("link", { name: "home" }));
-    expect(
-      await screen.findByText("home", { selector: "main" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("searchbox")).toBeInTheDocument();
     expect(screen.getByTestId("player-slot")).toBe(slot);
   });
 
@@ -57,7 +64,7 @@ describe("layout persistence", () => {
 
     await user.click(screen.getByRole("link", { name: "about" }));
     expect(
-      await screen.findByText("about", { selector: "main" }),
+      await screen.findByRole("heading", { name: "about" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("player-embed")).toBe(embed);
   });

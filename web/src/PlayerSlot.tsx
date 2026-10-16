@@ -15,27 +15,42 @@ export function PlayerSlot() {
   const prev = usePlayerStore((s) => s.prev);
   const setVolume = usePlayerStore((s) => s.setVolume);
 
+  const btn =
+    "zine-border inline-block cursor-pointer bg-paper px-2 py-0.5 text-xs font-bold uppercase hover:bg-acid";
+
   return (
-    <div data-testid="player-slot" className="zine-border">
+    <div data-testid="player-slot" className="zine-border bg-acid px-2 py-1">
       {current ? (
-        <>
+        <div className="flex flex-wrap items-center gap-2">
           <iframe
             data-testid="player-embed"
             title="player"
             src={current}
             allow="autoplay; encrypted-media"
+            className="zine-border w-full bg-ink"
           />
-          <button type="button" onClick={prev} aria-label="previous">
+          <button
+            type="button"
+            onClick={prev}
+            aria-label="previous"
+            className={btn}
+          >
             prev
           </button>
           <button
             type="button"
             onClick={toggle}
             aria-label={isPlaying ? "pause" : "play"}
+            className={btn}
           >
             {isPlaying ? "pause" : "play"}
           </button>
-          <button type="button" onClick={next} aria-label="next">
+          <button
+            type="button"
+            onClick={next}
+            aria-label="next"
+            className={btn}
+          >
             next
           </button>
           <input
@@ -47,9 +62,9 @@ export function PlayerSlot() {
             onChange={(e) => setVolume(Number(e.target.value))}
             aria-label="volume"
           />
-        </>
+        </div>
       ) : (
-        <p>no track queued</p>
+        <p className="text-xs font-bold uppercase">no track queued</p>
       )}
     </div>
   );

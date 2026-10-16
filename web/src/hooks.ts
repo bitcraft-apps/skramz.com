@@ -77,12 +77,30 @@ export function useBandGraph(id: string | undefined, depth = 3) {
   });
 }
 
-// GET /api/search?q= — unified band/member/release hits.
+// GET /api/bands?limit=8 — front-page strip (the search API 400s on an
+// empty q, so the idle gateway reads the band list instead).
+export type BandsList = {
+  data: Record<string, unknown>[];
+  nextCursor: string | null;
+};
+
+export function useBands(enabled = true) {
+  return useQuery({
+    queryKey: ["bands"],
+    enabled,
+    queryFn: () => fetchJson<BandsList>("/api/bands?limit=8"),
+  });
+}
+
+// GET /api/search?q= — unified band/member/release hits. Gated on a trimmed
+// query of 2+ chars (the API 400s on a blank q); keeps the previous query's
+// hits visible while the next one fetches.
 export function useSearch(q: string) {
   const query = q.trim();
   return useQuery({
     queryKey: ["search", query],
-    enabled: query.length > 0,
+    enabled: query.length >= 2,
+    placeholderData: keepPreviousData,
     queryFn: () =>
       fetchJson<SearchResult>(`/api/search?q=${encodeURIComponent(query)}`),
   });
