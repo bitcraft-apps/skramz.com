@@ -1,62 +1,41 @@
 # Content policy — skramz.org
 
-Binding rules for all band / member / release / media content. Humans and AI agents must follow this file. If in doubt, leave it unconfirmed or out.
+Binding for all band / member / release / media writes. If in doubt, leave it unconfirmed or out. Legality outranks completeness.
 
-## 1. Principles
+## 1. Sources
 
-- Every factual claim needs a source. No source = `unconfirmed`.
-- Only legal sources. No pirated text, images, or audio.
-- Legality outranks completeness, especially for media.
-- Attribution is mandatory whenever a license requires it.
-- Never present unconfirmed or disputed claims as fact.
+Every factual claim needs a legal source stored with `source_url + accessed_at`. No source = `unconfirmed`: show a visible badge and hedge ("reportedly", "unconfirmed"). No pirated text, images, or audio.
 
-## 2. Source tiers
-
-- **Tier 1 — authoritative:** band / label official sites and official accounts, direct artist statement.
+- **Tier 1 — authoritative:** band / label official sites and accounts, direct artist statement.
 - **Tier 2 — reputable:** established press, books, venues, festivals, MusicBrainz / Discogs entries with history.
-- **Tier 3 — community:** small press, zines, fan wikis, forums, user tips. Allowed, but never override T1/T2.
+- **Tier 3 — community:** small press, zines, fan wikis, forums, user tips. Never overrides T1/T2.
 
-Each claim stores `source_url` + `accessed_at` (date seen). Prefer the highest tier available.
+## 2. Statuses
 
-## 3. Verification statuses
+`confirmed` (has source) | `unconfirmed` (no source) | `disputed` (sources disagree).
 
-Every factual field uses `status`: `confirmed | unconfirmed | disputed`.
+Never write or upgrade to `confirmed` without `source_url + accessed_at`. Never present `unconfirmed` / `disputed` as fact. Highest tier wins the displayed value; the loser stays as `disputed` with its source link, never silently overwritten or deleted. Same-tier conflict: show the newest, note the rival.
 
-- `confirmed` — backed by a cited source (T1 preferred, T2/T3 accepted with link).
-- `unconfirmed` — no source yet, or only an anonymous tip. Show with a visible badge; agents must hedge ("reportedly", "unconfirmed").
-- `disputed` — sources disagree; see §6. Show both claims with sources.
+## 3. Text
 
-Agents must not write or upgrade a claim to `confirmed` without adding `source_url + accessed_at`.
+Own words only — never paste bios, articles, reviews, or lyrics. Short quotes (a sentence or two) with author + source link. No invented facts, lineup guesses, or genre padding; leave blank + `unconfirmed` instead.
 
-## 4. Text rules
+## 4. Media (images, photos, audio)
 
-- Write bios in your own words. Never paste bios, articles, reviews, or lyrics without permission.
-- Short quotes (a sentence or two) only with author + source link.
-- No invented facts, lineup guesses, or genre padding to fill empty fields. Leave blank + `unconfirmed` instead.
+Record `license + author + source_url` per file and render the attribution wherever the file is shown. Unknown license or author = do not publish.
 
-## 5. Media rules (images, photos, audio)
+- **Allowed:** own work / explicit permission, public domain, CC-BY / CC-BY-SA, licensed stock with receipt, platform embeds (YouTube, Bandcamp, Spotify).
+- **Forbidden:** hotlinks, image-search scrapes, unknown-origin re-uploads, ripped tracks / full copyrighted audio uploads.
+- Photos of living people need consent or a clearly licensed source; remove on request.
+- No `cover_r2_key` / `photo_r2_key` write without license + author on record; `media_links` stays embed-only (provider + url).
 
-Target schema per file: `license + author + source_url + attribution_text`.
+## 5. Corrections
 
-- **Allowed:** own work / explicit permission, public domain, CC-BY / CC-BY-SA, licensed stock with receipt. Embedded streams only via the host platform (YouTube, Bandcamp, Spotify) — the host handles playback licensing.
-- **Forbidden:** hotlinks, image-search scrapes, social-media re-uploads of unknown origin, ripped tracks / full copyrighted audio uploads.
-- Attribution: render `attribution_text` wherever the file is shown. If author or license is unknown, do not publish.
-- Photos of living people: need consent or a clearly licensed source. Remove on request (see §7).
+Anyone can report a wrong claim or infringing file with a source or rights note. Valid report: flip the field to `disputed` / unpublish the file, keep the old source link. Rights-holder takedowns remove first, discuss after.
 
-`media_links` stays embed-only (provider + url); file uploads live in R2 with the provenance fields above. No `cover_r2_key` / `photo_r2_key` write without license + author on record.
+## 6. Agent checklist (before any content write)
 
-## 6. Conflicts
-
-Highest tier wins for the displayed value; the losing claim is kept as `disputed` with its source link, not deleted. If T1 is silent and T2/T3 conflict, show the newest with `disputed` and note the rival. Agents must present both sides, never silently overwrite.
-
-## 7. Correction & takedown
-
-Anyone can report a wrong claim or infringing file with a source or rights note. On valid report: flip the field to `disputed` / unpublish the file within the same change, keep the old source link for audit. Rights-holder takedowns win over completeness — remove first, discuss after.
-
-## 8. Agent checklist (before any content write)
-
-1. Is there a source? If no → `unconfirmed` + no public claim of fact.
-2. Is the source legal? If no → drop it.
-3. Is media licensed + attributed (`license + author + source_url`)? If no → do not upload.
-4. Does a higher-tier source disagree? If yes → keep loser as `disputed`.
-5. CLI writes need human `[Y/n]` preview per repo rules; non-TTY aborts.
+1. Source? If no → `unconfirmed`, no public claim of fact.
+2. Legal? If no → drop it.
+3. Media licensed + attributed? If no → do not upload.
+4. Higher-tier source disagrees? Keep the loser as `disputed`.
