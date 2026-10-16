@@ -174,6 +174,53 @@ describe("homepage gateway", () => {
     }
   });
 
+  it("skips id-less search hits so row keys stay unique and links stay valid", async () => {
+    const errors: unknown[][] = [];
+    const consoleSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args);
+      });
+    try {
+      renderHome({
+        hits: [
+          { type: "band", id: "b9", name: "Zig Band" },
+          { type: "band", name: "Missing Id" },
+          { type: "member", id: "", name: "Empty Id" },
+          { type: "release", id: 7, name: "Num Id" },
+          { type: "member", id: "m9", name: "Zig Member" },
+        ],
+        nextCursor: null,
+      });
+
+      const user = userEvent.setup();
+      await user.type(screen.getByRole("searchbox"), "zig");
+
+      expect(
+        await screen.findByRole("link", { name: "Zig Band" }),
+      ).toHaveAttribute("href", "/bands/b9");
+      expect(
+        await screen.findByRole("link", { name: "Zig Member" }),
+      ).toHaveAttribute("href", "/members/m9");
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("link", { name: "Missing Id" }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: "Empty Id" }),
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole("link", { name: "Num Id" }),
+        ).not.toBeInTheDocument();
+      });
+      expect(errors.flat().join(" ")).not.toContain(
+        "Encountered two children with the same key",
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it("failed searches offer retry and reset", async () => {
     const { searches } = renderHome(null, 500);
 

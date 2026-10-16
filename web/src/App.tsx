@@ -45,7 +45,9 @@ export function Home() {
     setDebounced("");
   };
 
-  const hits = search.data?.hits ?? [];
+  // Skip id-less hits: there is nothing to link to, and coercing a
+  // missing id to "" would hand same-type rows the same React key.
+  const hits = (search.data?.hits ?? []).filter((hit) => str(hit.id) !== "");
   const groups = (
     [
       ["bands", "band"],
