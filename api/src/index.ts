@@ -30,6 +30,11 @@ function allowOrigin(origin: string): string | undefined {
   }
   try {
     const url = new URL(origin);
+    // Local dev loopback (Vite :5173 → worker :8787, plain http). Reads
+    // are public and writes stay bearer-gated, so no prod approval needed.
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      return origin;
+    }
     if (url.protocol === "https:" && PREVIEW_ORIGIN.test(url.hostname)) {
       return origin;
     }
