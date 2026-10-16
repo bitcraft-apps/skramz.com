@@ -39,7 +39,7 @@ describe("layout persistence", () => {
 
     await user.click(screen.getByRole("link", { name: "about" }));
     expect(
-      await screen.findByText("about", { selector: "main" }),
+      await screen.findByRole("heading", { name: "about" }),
     ).toBeInTheDocument();
 
     // Same DOM node survived navigation — the player never remounted.
@@ -64,7 +64,7 @@ describe("layout persistence", () => {
 
     await user.click(screen.getByRole("link", { name: "about" }));
     expect(
-      await screen.findByText("about", { selector: "main" }),
+      await screen.findByRole("heading", { name: "about" }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("player-embed")).toBe(embed);
   });

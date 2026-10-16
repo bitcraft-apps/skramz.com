@@ -21,6 +21,12 @@ function hitHref(hit: Hit): string {
   return `/bands/${id}`;
 }
 
+const BTN =
+  "zine-border zine-shadow-sm inline-block cursor-pointer bg-paper px-3 py-1 text-sm font-bold uppercase hover:bg-acid";
+
+const NOTICE =
+  "zine-border inline-block bg-acid px-2 py-1 text-sm font-bold uppercase";
+
 // Search-first gateway: an idle band strip plus debounced unified search
 // grouped into bands / members / releases.
 export function Home() {
@@ -56,73 +62,124 @@ export function Home() {
 
   return (
     <main>
-      <input
-        type="search"
-        aria-label="search"
-        placeholder="search bands, members, releases"
-        value={raw}
-        onChange={(event) => setRaw(event.target.value)}
-      />
+      <h1 className="bg-ink text-paper inline-block px-2 py-1 text-2xl font-bold uppercase">
+        dig through the noise
+      </h1>
+      <div className="mt-4">
+        <input
+          type="search"
+          aria-label="search"
+          placeholder="search bands, members, releases"
+          value={raw}
+          onChange={(event) => setRaw(event.target.value)}
+          className="zine-border zine-shadow w-full bg-white px-3 py-2 text-lg font-bold placeholder:font-normal"
+        />
+      </div>
       {searching ? (
-        search.isPending ? (
-          <p>loading</p>
-        ) : search.isError ? (
-          <div>
-            <p>search failed</p>
-            <button type="button" onClick={() => search.refetch()}>
-              retry
-            </button>
-            <button type="button" onClick={reset}>
-              reset
-            </button>
-          </div>
-        ) : hits.length === 0 ? (
-          <div>
-            <p>no results</p>
-            <button type="button" onClick={reset}>
-              reset
-            </button>
-          </div>
-        ) : (
-          groups.map((group) => (
-            <section key={group.heading} aria-label={group.heading}>
-              <h2>{group.heading}</h2>
-              <ul>
-                {group.items.map((hit) => (
-                  <li key={`${hit.type}:${str(hit.id)}`}>
-                    <Link to={hitHref(hit)}>{str(hit.name) || str(hit.id)}</Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))
-        )
+        <div className="mt-4">
+          {search.isPending ? (
+            <p className={NOTICE}>loading</p>
+          ) : search.isError ? (
+            <div className="zine-border zine-shadow bg-paper p-3">
+              <p className="text-sm font-bold uppercase">search failed</p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => search.refetch()}
+                  className={BTN}
+                >
+                  retry
+                </button>
+                <button type="button" onClick={reset} className={BTN}>
+                  reset
+                </button>
+              </div>
+            </div>
+          ) : hits.length === 0 ? (
+            <div className="zine-border zine-shadow bg-paper p-3">
+              <p className="text-sm font-bold uppercase">no results</p>
+              <div className="mt-2">
+                <button type="button" onClick={reset} className={BTN}>
+                  reset
+                </button>
+              </div>
+            </div>
+          ) : (
+            groups.map((group) => (
+              <section
+                key={group.heading}
+                aria-label={group.heading}
+                className="zine-border zine-shadow mt-4 bg-paper"
+              >
+                <h2 className="border-b-[3px] border-ink bg-acid px-3 py-1 text-sm font-bold uppercase">
+                  {group.heading}
+                </h2>
+                <ul>
+                  {group.items.map((hit) => (
+                    <li
+                      key={`${hit.type}:${str(hit.id)}`}
+                      className="border-t-[3px] border-ink first:border-t-0"
+                    >
+                      <Link
+                        to={hitHref(hit)}
+                        className="block px-3 py-2 font-bold hover:bg-acid"
+                      >
+                        {str(hit.name) || str(hit.id)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))
+          )}
+        </div>
       ) : (
-        <div>
-          {raw.trim().length > 0 && <p>keep typing</p>}
+        <div className="mt-4">
+          {raw.trim().length > 0 && (
+            <p className={`${NOTICE} mb-3`}>keep typing</p>
+          )}
           {idle.isPending ? (
-            <p>loading</p>
+            <p className={NOTICE}>loading</p>
           ) : idle.isError ? (
-            <div>
-              <p>failed to load bands</p>
-              <button type="button" onClick={() => idle.refetch()}>
-                retry
-              </button>
+            <div className="zine-border zine-shadow bg-paper p-3">
+              <p className="text-sm font-bold uppercase">failed to load bands</p>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => idle.refetch()}
+                  className={BTN}
+                >
+                  retry
+                </button>
+              </div>
             </div>
           ) : idleBands.length === 0 ? (
-            <p>no bands yet</p>
+            <p className={NOTICE}>no bands yet</p>
           ) : (
-            <ul>
-              {idleBands.map((band) => {
-                const id = str(band.id);
-                const name = str(band.name) || id;
-                return (
-                  <li key={id}>
-                    <Link to={`/bands/${id}`}>{name}</Link>
-                  </li>
-                );
-              })}
-            </ul>
+            <section className="zine-border zine-shadow bg-paper">
+              <h2 className="border-b-[3px] border-ink bg-acid px-3 py-1 text-sm font-bold uppercase">
+                latest bands
+              </h2>
+              <ul>
+                {idleBands.map((band) => {
+                  const id = str(band.id);
+                  const name = str(band.name) || id;
+                  return (
+                    <li
+                      key={id}
+                      className="border-t-[3px] border-ink first:border-t-0"
+                    >
+                      <Link
+                        to={`/bands/${id}`}
+                        className="block px-3 py-2 font-bold hover:bg-acid"
+                      >
+                        {name}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           )}
         </div>
       )}
@@ -131,7 +188,17 @@ export function Home() {
 }
 
 function About() {
-  return <main>about</main>;
+  return (
+    <main className="zine-border zine-shadow bg-paper p-4">
+      <h1 className="bg-ink text-paper inline-block px-2 py-1 text-xl font-bold uppercase">
+        about
+      </h1>
+      <p className="mt-3 max-w-prose text-sm leading-relaxed">
+        skramz.org is a DIY encyclopedia of bands, members, and releases.
+        search the gateway, follow the links, keep the player running.
+      </p>
+    </main>
+  );
 }
 
 // Root shell: nav + persistent player slot never unmount across routes;
@@ -139,17 +206,38 @@ function About() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <nav>
-        <Link to="/">home</Link> <Link to="/about">about</Link>
-      </nav>
-      <PlayerSlot />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/bands/:id" element={<BandView />} />
-        <Route path="/members/:id" element={<MemberView />} />
-        <Route path="/releases/:id" element={<ReleaseView />} />
-      </Routes>
+      <header className="border-b-[3px] border-ink bg-ink text-paper">
+        <div className="mx-auto flex max-w-3xl flex-wrap items-baseline gap-x-5 px-4 py-3">
+          <span className="text-xl font-bold uppercase tracking-tight">
+            skramz<span className="text-acid">.org</span>
+          </span>
+          <nav className="flex gap-4 text-sm font-bold uppercase">
+            <Link to="/" className="px-1 underline hover:bg-acid hover:text-ink">
+              home
+            </Link>
+            <Link
+              to="/about"
+              className="px-1 underline hover:bg-acid hover:text-ink"
+            >
+              about
+            </Link>
+          </nav>
+        </div>
+      </header>
+      <div className="border-b-[3px] border-ink bg-paper">
+        <div className="mx-auto max-w-3xl px-4 py-2">
+          <PlayerSlot />
+        </div>
+      </div>
+      <div className="mx-auto max-w-3xl px-4 py-6">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/bands/:id" element={<BandView />} />
+          <Route path="/members/:id" element={<MemberView />} />
+          <Route path="/releases/:id" element={<ReleaseView />} />
+        </Routes>
+      </div>
     </QueryClientProvider>
   );
 }

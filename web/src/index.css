@@ -31,3 +31,22 @@ body {
   border: 3px solid var(--color-ink);
   border-radius: var(--radius-zine);
 }
+
+/* Hard offset shadow: the xeroxed-flyer depth cue. */
+.zine-shadow {
+  box-shadow: 5px 5px 0 var(--color-ink);
+}
+
+.zine-shadow-sm {
+  box-shadow: 3px 3px 0 var(--color-ink);
+}
+
+::selection {
+  background: var(--color-acid);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-ink);
+  outline-offset: 2px;
+}
