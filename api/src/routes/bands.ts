@@ -154,6 +154,46 @@ export function registerBands(app: App): void {
     return c.json({ data: row }, 201);
   });
 
+  // POST /api/bands/:id/members — link an existing member to the band.
+  app.post("/api/bands/:id/members", async (c) => {
+    const denied = await requireAuth(c);
+    if (denied) return denied;
+    const id = c.req.param("id");
+    const band = await c.env.DB.prepare("SELECT id FROM bands WHERE id = ?").bind(id).first();
+    if (!band) {
+      return c.json({ error: { code: "not_found", message: "Band not found" } }, 404);
+    }
+    const parsed = await readBody(c);
+    if (!parsed.ok || typeof parsed.body.member_id !== "string" || !parsed.body.member_id) {
+      return c.json({ error: { code: "invalid", message: "Field member_id is required" } }, 422);
+    }
+    const member = await c.env.DB.prepare("SELECT id FROM members WHERE id = ?")
+      .bind(parsed.body.member_id)
+      .first();
+    if (!member) {
+      return c.json({ error: { code: "not_found", message: "Member not found" } }, 404);
+    }
+    const row = {
+      id: crypto.randomUUID(),
+      band_id: id,
+      member_id: parsed.body.member_id,
+      role: parsed.body.role ?? null,
+      joined_year: parsed.body.joined_year ?? null,
+      left_year: parsed.body.left_year ?? null,
+    };
+    try {
+      await c.env.DB.prepare(
+        "INSERT INTO band_members (id, band_id, member_id, role, joined_year, left_year) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+        .bind(row.id, row.band_id, row.member_id, row.role, row.joined_year, row.left_year)
+        .run();
+    } catch (err) {
+      const pub = publicWriteError(err, "insert");
+      return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
+    }
+    return c.json({ data: row }, 201);
+  });
+
   // PATCH /api/bands/:id
   app.patch("/api/bands/:id", async (c) => {
     const denied = await requireAuth(c);
