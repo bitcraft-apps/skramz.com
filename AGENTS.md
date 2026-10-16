@@ -28,5 +28,6 @@ task migrate      # apply D1 migrations locally
 - Graph via WebGL (react-force-graph or Sigma.js), 500-node cap.
 - Relationships via `band_members` join table + Recursive CTEs (SQLite `WITH RECURSIVE`). No graph DB.
 - CLI must push art to R2, print JSON preview, and require human `[Y/n]` before any API write. `--yes` is forbidden; non-TTY aborts.
+- Content rules in `docs/content-policy.md` are binding for all band/member/media writes (humans + agents).
 - No PR/issue references in code, comments, or tests; use `git blame` for history.
 - Architecture decisions live in `docs/adr/` (numbered MADR records) — read the relevant ADR before changing its area. No other spec/design docs (`docs/specs/`, `.sf/`, root `DESIGN.md`); keep transient specs inline in chat or the PR body.
