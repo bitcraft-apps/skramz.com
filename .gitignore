@@ -33,3 +33,4 @@ web/.wrangler/
 
 # Playwright
 .playwright-profile/
+.playwright-cli/
