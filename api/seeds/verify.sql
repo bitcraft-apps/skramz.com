@@ -5,6 +5,7 @@
 --
 -- With plain INSERTs, orphan rows fail loudly at apply time; these queries
 -- exist to catch smuggled OR IGNOREs and hand-merge mistakes at band #200.
+-- Structural corruption only; note style rules arrive with Phase 5.
 
 -- Orphan edges: a child row whose parent is missing.
 SELECT 'orphan band_member' AS violation, bm.id AS row_id
@@ -34,12 +35,3 @@ WHERE (cs.entity_type = 'band' AND NOT EXISTS (SELECT 1 FROM bands WHERE id = cs
    OR (cs.entity_type = 'band_member' AND NOT EXISTS (SELECT 1 FROM band_members WHERE id = cs.entity_id))
    OR (cs.entity_type = 'release' AND NOT EXISTS (SELECT 1 FROM releases WHERE id = cs.entity_id))
    OR (cs.entity_type = 'media_link' AND NOT EXISTS (SELECT 1 FROM media_links WHERE id = cs.entity_id));
-
--- Curator-note hygiene (§8): short, plain words, no pasted source text.
-SELECT 'note too long' AS violation, cs.id AS row_id
-FROM claim_sources cs
-WHERE cs.note IS NOT NULL AND length(cs.note) > 140;
-
-SELECT 'note pastes source text' AS violation, cs.id AS row_id
-FROM claim_sources cs
-WHERE cs.note IS NOT NULL AND cs.note LIKE '%http%';

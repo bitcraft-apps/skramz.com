@@ -94,9 +94,10 @@ Anyone can report a wrong claim or infringing file with a source or rights note.
 ## 7. Seeds
 
 Seeds are per-environment starter records, applied explicitly with
-`task seed` — never via migrations. Each rule below exists so the seed
-for band #200 is as safe as the first: human-readable SQL that a
-machine re-checks.
+`task seed` — never via migrations. Seed-file header comments say what
+the seed owns, how to apply it, and what a conflict means — nothing
+more. Each rule below exists so the seed for band #200 is as safe as
+the first: human-readable SQL that a machine re-checks.
 
 - One file per band, with ids derived as `{band}-{kind}-{name-slug}`
   using the full band slug (`orchid-m-jeff-salane`,
@@ -112,16 +113,9 @@ machine re-checks.
 - Every display value needs a source row or it stays `unconfirmed`.
   Corrections follow §5.
 - After applying a seed, run `api/seeds/verify.sql` against the same
-  database: every query in it hunts one corruption (orphan edges,
-  orphan evidence, over-long or pasted-text notes). Any row returned
-  rejects the seed — fix the file, re-apply from a fresh database,
-  never patch around it.
-
-## 8. Curator notes
-
-`claim_sources.note` is a working note for future curators reading the
-database, never rendered in the UI. Keep it under ~140 characters, in
-plain words a stranger understands — no cryptic fragments, no pasted
-source text. Record quirks that matter later ("page spells 'Jeffrey
-Salane'"). Seed-file header comments say what the seed owns, how to
-apply it, and what a conflict means — nothing more.
+  database: every query in it hunts one structural corruption (orphan
+  edges, orphan evidence). Any row returned rejects the seed — fix the
+  file, re-apply from a fresh database, never patch around it.
+- `claim_sources.note` is an internal working note for future curators,
+  never rendered. Note style rules arrive with Phase 5, when seeds
+  actually carry notes.
