@@ -42,6 +42,11 @@ tasks:
     dir: api
     cmd: pnpm exec wrangler d1 migrations apply DB --local
 
+  seed:
+    desc: Apply one seed file to local D1, e.g. `task seed SEED=yaphet-kotto.sql` (explicit only; seeds never run via migrate)
+    dir: api
+    cmd: 'pnpm exec wrangler d1 execute DB --local --file seeds/{{.SEED}}'
+
   migrate:prod:
     desc: Apply D1 migrations to production (explicit only)
     dir: api

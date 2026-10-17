@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useBand, useMember, useRelease } from "./hooks";
 import { artUrl } from "./media";
+import { FreshnessLine, RecordNotes, SourceNote, asSources, matchSources } from "./sources";
 import { usePlayerStore } from "./stores/playerStore";
 
 // Graph loads only with band + graph pages; the player slot never unmounts.
@@ -118,6 +119,7 @@ export function BandView() {
     disbanded && `disbanded ${disbanded}`,
   ].filter(Boolean);
   const bio = str(band, "bio").trim();
+  const sources = asSources(data.sources);
   const embeds = data.media_links
     .map(embedUrl)
     .filter((url): url is string => url !== null);
@@ -148,6 +150,7 @@ export function BandView() {
           />
         )}
         {bio && <p className="mt-3 max-w-prose text-sm leading-relaxed">{bio}</p>}
+        <FreshnessLine updatedAt={band.updated_at} />
         {embeds.length > 0 && (
           <div className="mt-3">
             <button type="button" onClick={playFirst} className={BTN}>
@@ -172,19 +175,38 @@ export function BandView() {
           members
         </h2>
         <ul>
-          {data.members.map((m) => (
-            <li
-              key={str(m, "id")}
-              className="border-t-[3px] border-ink first:border-t-0"
-            >
-              <Link
-                to={`/members/${str(m, "id")}`}
-                className="block px-3 py-2 font-bold hover:bg-acid"
+          {data.members.map((m) => {
+            const edgeId = str(m, "band_member_id");
+            const stint = [
+              str(m, "role"),
+              [year(m.joined_year), year(m.left_year)].filter(Boolean).join("–"),
+            ].filter(Boolean);
+            const edgeRows = edgeId
+              ? ["membership", "role", "joined_year", "left_year"].flatMap((field) =>
+                  matchSources(sources, edgeId, field),
+                )
+              : [];
+            return (
+              <li
+                key={str(m, "id")}
+                className="border-t-[3px] border-ink first:border-t-0"
               >
-                {str(m, "name")}
-              </Link>
-            </li>
-          ))}
+                <Link
+                  to={`/members/${str(m, "id")}`}
+                  className="block px-3 py-2 font-bold hover:bg-acid"
+                >
+                  {str(m, "name")}
+                </Link>
+                {(stint.length > 0 || edgeRows.length > 0) && (
+                  <p className="px-3 pb-2 text-xs font-bold uppercase">
+                    {stint.join(" · ")}
+                    {stint.length > 0 && edgeRows.length > 0 ? " " : null}
+                    <SourceNote rows={edgeRows} />
+                  </p>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </section>
       <section
@@ -223,6 +245,7 @@ export function BandView() {
           <ListenList links={data.media_links} />
         </div>
       </section>
+      <RecordNotes sources={sources} />
     </main>
   );
 }
@@ -234,6 +257,7 @@ export function MemberView() {
   return (
     <main>
       <h1>{str(data.data, "name")}</h1>
+      <FreshnessLine updatedAt={data.data.updated_at} />
       <h2>bands</h2>
       <ul>
         {data.bands.map((b) => {
@@ -246,6 +270,7 @@ export function MemberView() {
           );
         })}
       </ul>
+      <RecordNotes sources={asSources(data.sources)} />
     </main>
   );
 }
@@ -258,9 +283,11 @@ export function ReleaseView() {
   return (
     <main>
       <h1>{str(data.data, "title")}</h1>
+      <FreshnessLine updatedAt={data.data.updated_at} />
       {cover && <img src={cover} alt={`${str(data.data, "title")} cover`} />}
       <h2>listen</h2>
       <ListenList links={data.media_links} />
+      <RecordNotes sources={asSources(data.sources)} />
     </main>
   );
 }

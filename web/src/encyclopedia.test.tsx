@@ -155,6 +155,59 @@ describe("band hero", () => {
   });
 });
 
+describe("band evidence", () => {
+  const evidencePayload = {
+    data: { id: "b1", name: "Probe Band", photo_r2_key: null, updated_at: "2026-10-17T00:00:00.000Z" },
+    members: [
+      { id: "m1", name: "Probe Member", band_member_id: "bm1", role: "drums", joined_year: null, left_year: null },
+      { id: "m2", name: "Gapped Member", band_member_id: "bm2", role: null, joined_year: null, left_year: null },
+    ],
+    releases: [],
+    media_links: [],
+    sources: [
+      { id: "cs1", entity_type: "band_member", entity_id: "bm1", field: "role", value: "drums", status: "confirmed", tier: 1, source_url: "https://example.com/drums", accessed_at: "2026-10-17", note: null },
+      { id: "cs2", entity_type: "band_member", entity_id: "bm2", field: "role", value: "bass", status: "unconfirmed", tier: 3, source_url: "https://example.com/bass", accessed_at: "2026-10-17", note: null },
+      { id: "cs3", entity_type: "band", entity_id: "b1", field: "formed_year", value: "1997", status: "disputed", tier: 1, source_url: "https://example.com/rival", accessed_at: "2026-10-17", note: "rival copy" },
+    ],
+  };
+
+  it("shows the freshness date in the hero", async () => {
+    stubApi(evidencePayload);
+    renderBand();
+    const hero = await screen.findByLabelText("band hero");
+    expect(within(hero).getByText(/last reviewed 2026-10-17/)).toBeInTheDocument();
+  });
+
+  it("badges the gapped member row unconfirmed and links the confirmed role", async () => {
+    stubApi(evidencePayload);
+    renderBand();
+    const members = await screen.findByLabelText("members");
+    expect(within(members).getByText("unconfirmed")).toBeInTheDocument();
+    expect(within(members).getByText("drums")).toBeInTheDocument();
+    const roleLink = within(members).getByRole("link", { name: "source" });
+    expect(roleLink).toHaveAttribute("href", "https://example.com/drums");
+  });
+
+  it("lists disputed rivals with values and links in record notes", async () => {
+    stubApi(evidencePayload);
+    renderBand();
+    const notes = await screen.findByLabelText("record notes");
+    expect(within(notes).getByText("disputed")).toBeInTheDocument();
+    expect(within(notes).getByText(/1997/)).toBeInTheDocument();
+    expect(within(notes).getAllByText(/rival copy/).length).toBeGreaterThan(0);
+    const hrefs = within(notes).getAllByRole("link", { name: "source" }).map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("https://example.com/rival");
+  });
+
+  it("renders honest unknown freshness and no notes without sources", async () => {
+    stubApi(bandPayload);
+    renderBand();
+    const hero = await screen.findByLabelText("band hero");
+    expect(within(hero).getByText(/last reviewed unknown/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("record notes")).not.toBeInTheDocument();
+  });
+});
+
 const releasePayload = {
   data: { id: "r1", title: "Probe Release", cover_r2_key: null },
   media_links: [

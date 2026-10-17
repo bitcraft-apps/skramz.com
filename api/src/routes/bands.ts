@@ -1,13 +1,16 @@
 import type { App } from "../lib/http";
 import {
   GRAPH_LIMIT,
+  NOW_SQL,
   escapeLike,
+  fetchClaimSources,
   normalizeName,
   parseDepth,
   parseLimit,
   publicWriteError,
   readBody,
   requireAuth,
+  touchUpdatedAt,
 } from "../lib/http";
 
 export function registerBands(app: App): void {
@@ -47,7 +50,7 @@ export function registerBands(app: App): void {
       return c.json({ error: { code: "not_found", message: "Band not found" } }, 404);
     }
     const members = await c.env.DB.prepare(
-      "SELECT m.*, bm.role, bm.joined_year, bm.left_year FROM members m JOIN band_members bm ON bm.member_id = m.id WHERE bm.band_id = ? ORDER BY m.id LIMIT 50",
+      "SELECT m.*, bm.id AS band_member_id, bm.role, bm.joined_year, bm.left_year FROM members m JOIN band_members bm ON bm.member_id = m.id WHERE bm.band_id = ? ORDER BY m.id LIMIT 50",
     )
       .bind(id)
       .all<Record<string, unknown>>();
@@ -57,11 +60,26 @@ export function registerBands(app: App): void {
     const media = await c.env.DB.prepare("SELECT * FROM media_links WHERE band_id = ? ORDER BY id LIMIT 50")
       .bind(id)
       .all<Record<string, unknown>>();
+    // Freshness and evidence ride along: the page badge, unconfirmed markers,
+    // and disputed rivals all read from here. Additive — old clients ignore it.
+    const sources = await fetchClaimSources(c.env.DB, [
+      { entity_type: "band", entity_id: id },
+      ...members.results
+        .filter((m) => typeof m.band_member_id === "string")
+        .map((m) => ({ entity_type: "band_member", entity_id: m.band_member_id as string })),
+      ...releases.results
+        .filter((r) => typeof r.id === "string")
+        .map((r) => ({ entity_type: "release", entity_id: r.id as string })),
+      ...media.results
+        .filter((m) => typeof m.id === "string")
+        .map((m) => ({ entity_type: "media_link", entity_id: m.id as string })),
+    ]);
     return c.json({
       data: band,
       members: members.results,
       releases: releases.results,
       media_links: media.results,
+      sources,
     });
   });
 
@@ -143,7 +161,7 @@ export function registerBands(app: App): void {
     };
     try {
       await c.env.DB.prepare(
-        "INSERT INTO bands (id, name, name_norm, formed_year, disbanded_year, location, bio, photo_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        `INSERT INTO bands (id, name, name_norm, formed_year, disbanded_year, location, bio, photo_r2_key, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ${NOW_SQL})`,
       )
         .bind(row.id, row.name, row.name_norm, row.formed_year, row.disbanded_year, row.location, row.bio, row.photo_r2_key)
         .run();
@@ -183,7 +201,7 @@ export function registerBands(app: App): void {
     };
     try {
       await c.env.DB.prepare(
-        "INSERT INTO band_members (id, band_id, member_id, role, joined_year, left_year) VALUES (?, ?, ?, ?, ?, ?)",
+        `INSERT INTO band_members (id, band_id, member_id, role, joined_year, left_year, updated_at) VALUES (?, ?, ?, ?, ?, ?, ${NOW_SQL})`,
       )
         .bind(row.id, row.band_id, row.member_id, row.role, row.joined_year, row.left_year)
         .run();
@@ -191,6 +209,7 @@ export function registerBands(app: App): void {
       const pub = publicWriteError(err, "insert");
       return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
+    await touchUpdatedAt(c.env.DB, "bands", id);
     return c.json({ data: row }, 201);
   });
 

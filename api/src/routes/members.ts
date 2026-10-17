@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { normalizeName, publicWriteError, readBody, requireAuth } from "../lib/http";
+import { NOW_SQL, fetchClaimSources, normalizeName, publicWriteError, readBody, requireAuth } from "../lib/http";
 
 export function registerMembers(app: App): void {
   // GET /api/members/:id — member + band history.
@@ -12,11 +12,17 @@ export function registerMembers(app: App): void {
       return c.json({ error: { code: "not_found", message: "Member not found" } }, 404);
     }
     const bands = await c.env.DB.prepare(
-      "SELECT b.*, bm.role, bm.joined_year, bm.left_year FROM bands b JOIN band_members bm ON bm.band_id = b.id WHERE bm.member_id = ? ORDER BY b.id LIMIT 50",
+      "SELECT b.*, bm.id AS band_member_id, bm.role, bm.joined_year, bm.left_year FROM bands b JOIN band_members bm ON bm.band_id = b.id WHERE bm.member_id = ? ORDER BY b.id LIMIT 50",
     )
       .bind(id)
       .all<Record<string, unknown>>();
-    return c.json({ data: member, bands: bands.results });
+    const sources = await fetchClaimSources(c.env.DB, [
+      { entity_type: "member", entity_id: id },
+      ...bands.results
+        .filter((b) => typeof b.band_member_id === "string")
+        .map((b) => ({ entity_type: "band_member", entity_id: b.band_member_id as string })),
+    ]);
+    return c.json({ data: member, bands: bands.results, sources });
   });
 
   // POST /api/members
@@ -34,7 +40,9 @@ export function registerMembers(app: App): void {
       bio: parsed.body.bio ?? null,
     };
     try {
-      await c.env.DB.prepare("INSERT INTO members (id, name, name_norm, bio) VALUES (?, ?, ?, ?)")
+      await c.env.DB.prepare(
+        `INSERT INTO members (id, name, name_norm, bio, updated_at) VALUES (?, ?, ?, ?, ${NOW_SQL})`,
+      )
         .bind(row.id, row.name, row.name_norm, row.bio)
         .run();
     } catch (err) {
@@ -70,7 +78,9 @@ export function registerMembers(app: App): void {
       return c.json({ error: { code: "invalid", message: "Nothing to update" } }, 422);
     }
     try {
-      await c.env.DB.prepare(`UPDATE members SET ${Object.keys(patch).map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
+      await c.env.DB.prepare(
+        `UPDATE members SET ${Object.keys(patch).map((k) => `${k} = ?`).join(", ")}, updated_at = ${NOW_SQL} WHERE id = ?`,
+      )
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {

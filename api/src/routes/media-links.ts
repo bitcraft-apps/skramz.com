@@ -1,5 +1,24 @@
 import type { App } from "../lib/http";
-import { publicWriteError, readBody, requireAuth } from "../lib/http";
+import { NOW_SQL, publicWriteError, readBody, requireAuth, touchUpdatedAt } from "../lib/http";
+import type { D1Database } from "../lib/db";
+
+// A media link belongs to exactly one parent; resolve the owning band so
+// writes refresh its updated_at freshness badge.
+async function owningBandId(
+  db: D1Database,
+  releaseId: unknown,
+  bandId: unknown,
+): Promise<string | null> {
+  if (typeof bandId === "string" && bandId) return bandId;
+  if (typeof releaseId === "string" && releaseId) {
+    const release = await db
+      .prepare("SELECT band_id FROM releases WHERE id = ?")
+      .bind(releaseId)
+      .first<Record<string, unknown>>();
+    if (typeof release?.band_id === "string") return release.band_id;
+  }
+  return null;
+}
 
 function singleParentViolation(releaseId: unknown, bandId: unknown): boolean {
   // Exactly one parent required (mirrors the DDL CHECK at handler layer).
@@ -38,7 +57,7 @@ export function registerMediaLinks(app: App): void {
     };
     try {
       await c.env.DB.prepare(
-        "INSERT INTO media_links (id, release_id, band_id, provider, url, embed_url) VALUES (?, ?, ?, ?, ?, ?)",
+        `INSERT INTO media_links (id, release_id, band_id, provider, url, embed_url, updated_at) VALUES (?, ?, ?, ?, ?, ?, ${NOW_SQL})`,
       )
         .bind(row.id, row.release_id, row.band_id, row.provider, row.url, row.embed_url)
         .run();
@@ -46,6 +65,8 @@ export function registerMediaLinks(app: App): void {
       const pub = publicWriteError(err, "insert");
       return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
+    const owner = await owningBandId(c.env.DB, row.release_id, row.band_id);
+    if (owner) await touchUpdatedAt(c.env.DB, "bands", owner);
     return c.json({ data: row }, 201);
   });
 
@@ -82,14 +103,29 @@ export function registerMediaLinks(app: App): void {
       return c.json({ error: { code: "invalid", message: "Nothing to update" } }, 422);
     }
     try {
-      await c.env.DB.prepare(`UPDATE media_links SET ${Object.keys(patch).map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
+      await c.env.DB.prepare(
+        `UPDATE media_links SET ${Object.keys(patch).map((k) => `${k} = ?`).join(", ")}, updated_at = ${NOW_SQL} WHERE id = ?`,
+      )
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {
       const pub = publicWriteError(err, "update");
       return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
-    const updated = await c.env.DB.prepare("SELECT * FROM media_links WHERE id = ?").bind(id).first();
+    const updated = await c.env.DB.prepare("SELECT * FROM media_links WHERE id = ?")
+      .bind(id)
+      .first<Record<string, unknown>>();
+    const owners = new Set<string>();
+    for (const pair of [
+      [existing.release_id, existing.band_id],
+      [updated?.release_id, updated?.band_id],
+    ] as const) {
+      const owner = await owningBandId(c.env.DB, pair[0], pair[1]);
+      if (owner && !owners.has(owner)) {
+        owners.add(owner);
+        await touchUpdatedAt(c.env.DB, "bands", owner);
+      }
+    }
     return c.json({ data: updated });
   });
 }

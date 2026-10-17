@@ -176,6 +176,109 @@ describe("0002_five_tables migration (real DDL applied to local SQLite/D1-like D
     expect(db.prepare("SELECT COUNT(*) AS n FROM media_links").get()?.n).toBe(1);
   });
 
+  it("0005 creates claim_sources with status/tier/entity guardrails", () => {
+    const cols = db
+      .prepare("SELECT name FROM pragma_table_info('claim_sources')")
+      .all()
+      .map((r) => r.name);
+    expect(cols).toEqual(
+      expect.arrayContaining([
+        "entity_type",
+        "entity_id",
+        "field",
+        "value",
+        "status",
+        "tier",
+        "source_url",
+        "accessed_at",
+        "note",
+      ]),
+    );
+    db.prepare(
+      "INSERT INTO claim_sources (id, entity_type, entity_id, field, status, tier, source_url, accessed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("cs-ok", "band", "b1", "formed_year", "confirmed", 2, "https://example.com", "2026-10-17");
+    for (const [col, val] of [
+      ["status", "maybe"],
+      ["tier", 4],
+      ["entity_type", "label"],
+    ] as const) {
+      expect(() =>
+        db.prepare(`INSERT INTO claim_sources (id, entity_type, entity_id, field, status, tier, source_url, accessed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          `cs-bad-${col}`,
+          col === "entity_type" ? val : "band",
+          "b1",
+          "formed_year",
+          col === "status" ? val : "confirmed",
+          col === "tier" ? val : 2,
+          "https://example.com",
+          "2026-10-17",
+        ),
+      ).toThrow(/CHECK constraint failed/i);
+    }
+    expect(
+      db.prepare("SELECT name FROM sqlite_master WHERE type='index' AND name='claim_sources_lookup'").all(),
+    ).toHaveLength(1);
+  });
+
+  it("0006 adds updated_at to every content table and backfills from created_at", () => {
+    // Old-schema DB (migrations before 0006 have no child updated_at): insert
+    // rows, then apply 0006 and check the backfill.
+    const old = new DatabaseSync(":memory:");
+    old.exec("PRAGMA foreign_keys = ON;");
+    for (const file of readdirSync(migrationsDir).filter((f) => f.endsWith(".sql")).sort()) {
+      if (file >= "0006") continue;
+      old.exec(readFileSync(join(migrationsDir, file), "utf8"));
+    }
+    old.prepare("INSERT INTO bands (id, name, name_norm) VALUES (?, ?, ?)").run("b1", "Saetia", "saetia");
+    old.prepare("INSERT INTO members (id, name, name_norm, created_at) VALUES (?, ?, ?, ?)").run("m1", "Billy Werner", "billy werner", "2020-05-05T05:05:05.000Z");
+    old.exec(readFileSync(join(migrationsDir, "0006_updated_at.sql"), "utf8"));
+    for (const table of ["bands", "members", "band_members", "releases", "media_links", "claim_sources"]) {
+      const cols = old
+        .prepare(`SELECT name FROM pragma_table_info('${table}')`)
+        .all()
+        .map((r) => r.name);
+      expect(cols, table).toContain("updated_at");
+    }
+    // Backfilled from created_at, not a fabricated now; tables without a
+    // created_at stay honestly NULL.
+    expect(old.prepare("SELECT updated_at AS u FROM members WHERE id = ?").get("m1")?.u).toBe("2020-05-05T05:05:05.000Z");
+    old.close();
+  });
+
+  it("orchid seed applies cleanly and shows honest gaps (NULL years, NULL roles)", () => {
+    const seedsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "seeds");
+    db.exec(readFileSync(join(seedsDir, "orchid.sql"), "utf8"));
+    expect(db.prepare("SELECT COUNT(*) AS n FROM bands WHERE id = ?").get("band-orchid")?.n).toBe(1);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM band_members WHERE band_id = ?").get("band-orchid")?.n).toBe(5);
+    expect(db.prepare("SELECT formed_year AS y FROM bands WHERE id = ?").get("band-orchid")?.y).toBeNull();
+    expect(
+      db.prepare("SELECT COUNT(*) AS n FROM band_members WHERE band_id = ? AND role IS NULL").get("band-orchid")?.n,
+    ).toBe(3);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM claim_sources WHERE entity_id = ? OR entity_id LIKE 'oc-%'").get("band-orchid")?.n).toBe(15);
+    expect(db.prepare("SELECT updated_at AS u FROM bands WHERE id = ?").get("band-orchid")?.u).toBe("2026-10-17T00:00:00.000Z");
+    expect(
+      db.prepare("SELECT COUNT(*) AS n FROM band_members WHERE band_id = ? AND updated_at IS NULL").get("band-orchid")?.n,
+    ).toBe(0);
+  });
+
+  it("yaphet-kotto seed applies cleanly with sources for every claim", () => {
+    const seedsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "seeds");
+    db.exec(readFileSync(join(seedsDir, "yaphet-kotto.sql"), "utf8"));
+    expect(db.prepare("SELECT COUNT(*) AS n FROM bands WHERE id = ?").get("band-yaphet-kotto")?.n).toBe(1);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM members WHERE id LIKE 'yk-m-%'").get()?.n).toBe(10);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM band_members WHERE band_id = ?").get("band-yaphet-kotto")?.n).toBe(10);
+    expect(db.prepare("SELECT role AS r FROM band_members WHERE id = ?").get("yk-bm-scott-batiste")?.r).toBe("drums");
+    expect(
+      db.prepare("SELECT COUNT(*) AS n FROM band_members WHERE band_id = ? AND role IS NULL").get("band-yaphet-kotto")?.n,
+    ).toBe(9);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM claim_sources WHERE entity_id LIKE 'yk-%' OR entity_id = ?").get("band-yaphet-kotto")?.n).toBe(21);
+    expect(db.prepare("SELECT COUNT(*) AS n FROM claim_sources WHERE source_url IS NULL OR accessed_at IS NULL").get()?.n).toBe(0);
+    expect(db.prepare("SELECT updated_at AS u FROM bands WHERE id = ?").get("band-yaphet-kotto")?.u).toBe("2026-10-17T00:00:00.000Z");
+    expect(
+      db.prepare("SELECT COUNT(*) AS n FROM band_members WHERE band_id = ? AND updated_at IS NULL").get("band-yaphet-kotto")?.n,
+    ).toBe(0);
+  });
+
   it("0004 backfills title_norm for pre-existing releases (no NULLs, indexed)", () => {
     // Old-schema DB (migrations before 0004 have no title_norm): insert a
     // release, then apply 0004 and check the backfill.

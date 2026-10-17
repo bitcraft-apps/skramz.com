@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { RELEASE_TYPES, normalizeName, publicWriteError, readBody, requireAuth } from "../lib/http";
+import { NOW_SQL, RELEASE_TYPES, fetchClaimSources, normalizeName, publicWriteError, readBody, requireAuth, touchUpdatedAt } from "../lib/http";
 
 function invalidReleaseType(value: unknown): boolean {
   // releases.release_type is NOT NULL (issue #21); a present value must be in
@@ -22,7 +22,13 @@ export function registerReleases(app: App): void {
     const media = await c.env.DB.prepare("SELECT * FROM media_links WHERE release_id = ? ORDER BY id LIMIT 50")
       .bind(id)
       .all<Record<string, unknown>>();
-    return c.json({ data: release, media_links: media.results });
+    const sources = await fetchClaimSources(c.env.DB, [
+      { entity_type: "release", entity_id: id },
+      ...media.results
+        .filter((m) => typeof m.id === "string")
+        .map((m) => ({ entity_type: "media_link", entity_id: m.id as string })),
+    ]);
+    return c.json({ data: release, media_links: media.results, sources });
   });
 
   // POST /api/releases
@@ -53,7 +59,7 @@ export function registerReleases(app: App): void {
     };
     try {
       await c.env.DB.prepare(
-        "INSERT INTO releases (id, band_id, title, title_norm, release_type, release_year, cover_r2_key) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        `INSERT INTO releases (id, band_id, title, title_norm, release_type, release_year, cover_r2_key, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ${NOW_SQL})`,
       )
         .bind(row.id, row.band_id, row.title, row.title_norm, row.release_type, row.release_year, row.cover_r2_key)
         .run();
@@ -61,6 +67,7 @@ export function registerReleases(app: App): void {
       const pub = publicWriteError(err, "insert");
       return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
+    await touchUpdatedAt(c.env.DB, "bands", row.band_id as string);
     return c.json({ data: row }, 201);
   });
 
@@ -73,7 +80,7 @@ export function registerReleases(app: App): void {
       return c.json({ error: { code: "invalid", message: "Invalid JSON body" } }, 422);
     }
     const id = c.req.param("id");
-    const existing = await c.env.DB.prepare("SELECT * FROM releases WHERE id = ?").bind(id).first();
+    const existing = await c.env.DB.prepare("SELECT * FROM releases WHERE id = ?").bind(id).first<Record<string, unknown>>();
     if (!existing) {
       return c.json({ error: { code: "not_found", message: "Release not found" } }, 404);
     }
@@ -100,14 +107,23 @@ export function registerReleases(app: App): void {
       return c.json({ error: { code: "invalid", message: "Nothing to update" } }, 422);
     }
     try {
-      await c.env.DB.prepare(`UPDATE releases SET ${Object.keys(patch).map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
+      await c.env.DB.prepare(
+        `UPDATE releases SET ${Object.keys(patch).map((k) => `${k} = ?`).join(", ")}, updated_at = ${NOW_SQL} WHERE id = ?`,
+      )
         .bind(...Object.values(patch), id)
         .run();
     } catch (err) {
       const pub = publicWriteError(err, "update");
       return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
-    const updated = await c.env.DB.prepare("SELECT * FROM releases WHERE id = ?").bind(id).first();
+    const updated = await c.env.DB.prepare("SELECT * FROM releases WHERE id = ?").bind(id).first<Record<string, unknown>>();
+    const touched = new Set<string>();
+    for (const bandId of [existing.band_id, updated?.band_id]) {
+      if (typeof bandId === "string" && !touched.has(bandId)) {
+        touched.add(bandId);
+        await touchUpdatedAt(c.env.DB, "bands", bandId);
+      }
+    }
     return c.json({ data: updated });
   });
 }

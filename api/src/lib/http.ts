@@ -1,5 +1,5 @@
 import type { Context, Hono } from "hono";
-import type { Bindings } from "./db";
+import type { Bindings, D1Database } from "./db";
 
 export type App = Hono<{ Bindings: Bindings }>;
 
@@ -54,6 +54,57 @@ export function publicInternalError(): { status: 500; code: string; message: str
 
 export function publicD1Unavailable(): { status: 500; code: string; message: string } {
   return { status: 500, code: "d1_unavailable", message: "D1 unavailable" };
+}
+
+// Freshness timestamp shared by every explicit writer: SQLite forbids
+// expression defaults in ADD COLUMN on non-empty tables, so routes set
+// updated_at in SQL instead of relying on a column DEFAULT.
+export const NOW_SQL = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+
+// Freshness: a child write refreshes its owner's updated_at so a band page
+// answers "how fresh is this" from one field. Best-effort by design — the
+// write is the contract, the touch only feeds the badge — so a touch failure
+// logs server-side and never fails the request. Table is a closed union, so
+// the interpolated name cannot carry client input.
+export async function fetchClaimSources(
+  db: D1Database,
+  refs: { entity_type: string; entity_id: string }[],
+): Promise<Record<string, unknown>[]> {
+  // One bounded query per entity type; callers pass only server-side type
+  // literals, never client input. Empty in, empty out — no query at all.
+  const byType = new Map<string, string[]>();
+  for (const ref of refs) {
+    if (!ref.entity_id) continue;
+    const ids = byType.get(ref.entity_type) ?? [];
+    if (!ids.includes(ref.entity_id)) ids.push(ref.entity_id);
+    byType.set(ref.entity_type, ids);
+  }
+  const out: Record<string, unknown>[] = [];
+  for (const [type, ids] of byType) {
+    if (ids.length === 0) continue;
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = await db
+      .prepare(`SELECT * FROM claim_sources WHERE entity_type = ? AND entity_id IN (${placeholders}) ORDER BY entity_id, field`)
+      .bind(type, ...ids)
+      .all<Record<string, unknown>>();
+    out.push(...rows.results);
+  }
+  return out;
+}
+
+export async function touchUpdatedAt(
+  db: D1Database,
+  table: "bands" | "members",
+  id: string,
+): Promise<void> {
+  try {
+    await db
+      .prepare(`UPDATE ${table} SET updated_at = ${NOW_SQL} WHERE id = ?`)
+      .bind(id)
+      .run();
+  } catch (err) {
+    console.error(`Touch ${table} failed`, err);
+  }
 }
 
 // Lowercase, de-punctuated search target for `name_norm` (LIKE-search target

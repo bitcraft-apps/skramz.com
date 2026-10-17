@@ -581,6 +581,102 @@ describe("issue #8: PATCH writes", () => {
   });
 });
 
+describe("band freshness (updated_at touch)", () => {
+  const OLD = "2000-01-01T00:00:00.000Z";
+
+  it("linking a member refreshes the band updated_at", async () => {
+    db.prepare("UPDATE bands SET updated_at = ? WHERE id = ?").run(OLD, "b1");
+    const res = await app.request(
+      "/api/bands/b1/members",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ member_id: "m1", role: "vocals" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+    expect(db.prepare("SELECT updated_at AS u FROM bands WHERE id = ?").get("b1")?.u).not.toBe(OLD);
+  });
+
+  it("adding a release refreshes the owning band updated_at", async () => {
+    db.prepare("UPDATE bands SET updated_at = ? WHERE id = ?").run(OLD, "b1");
+    const res = await app.request(
+      "/api/releases",
+      {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ band_id: "b1", title: "Demo", release_type: "Demo" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(201);
+    expect(db.prepare("SELECT updated_at AS u FROM bands WHERE id = ?").get("b1")?.u).not.toBe(OLD);
+  });
+
+  it("patching a member refreshes the member updated_at", async () => {
+    db.prepare("UPDATE members SET updated_at = ? WHERE id = ?").run(OLD, "m1");
+    const res = await app.request(
+      "/api/members/m1",
+      {
+        method: "PATCH",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ bio: "Voice of a generation" }),
+      },
+      ENV,
+    );
+    expect(res.status).toBe(200);
+    expect(db.prepare("SELECT updated_at AS u FROM members WHERE id = ?").get("m1")?.u).not.toBe(OLD);
+  });
+});
+
+describe("claim sources on reads", () => {
+  function seedSources() {
+    db.prepare("INSERT INTO band_members (id, band_id, member_id, role) VALUES (?, ?, ?, ?)").run("bm1", "b1", "m1", "vocals");
+    const insert =
+      "INSERT INTO claim_sources (id, entity_type, entity_id, field, status, tier, source_url, accessed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    db.prepare(insert).run("cs1", "band", "b1", "formed_year", "confirmed", 2, "https://example.com/band", "2026-10-17");
+    db.prepare(insert).run("cs2", "band_member", "bm1", "role", "confirmed", 1, "https://example.com/edge", "2026-10-17");
+    db.prepare(insert).run("cs3", "member", "m1", "name", "disputed", 3, "https://example.com/member", "2026-10-17");
+  }
+
+  it("GET /api/bands/:id returns band + edge sources and edge ids", async () => {
+    seedSources();
+    const res = await app.request("/api/bands/b1", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      members: Record<string, unknown>[];
+      sources: Record<string, unknown>[];
+    };
+    expect(json.members[0].band_member_id).toBe("bm1");
+    expect(json.sources.map((s) => s.id).sort()).toEqual(["cs1", "cs2"]);
+  });
+
+  it("GET /api/bands/:id returns an empty sources array when none exist", async () => {
+    const res = await app.request("/api/bands/b1", {}, ENV);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { sources: unknown[] }).sources).toEqual([]);
+  });
+
+  it("GET /api/members/:id returns member + edge sources", async () => {
+    seedSources();
+    const res = await app.request("/api/members/m1", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { sources: Record<string, unknown>[] };
+    expect(json.sources.map((s) => s.id).sort()).toEqual(["cs2", "cs3"]);
+  });
+
+  it("GET /api/releases/:id returns release sources", async () => {
+    db.prepare(
+      "INSERT INTO claim_sources (id, entity_type, entity_id, field, status, tier, source_url, accessed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run("cs4", "release", "r1", "title", "confirmed", 2, "https://example.com/release", "2026-10-17");
+    const res = await app.request("/api/releases/r1", {}, ENV);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { sources: Record<string, unknown>[] };
+    expect(json.sources.map((s) => s.id)).toEqual(["cs4"]);
+  });
+});
+
 describe("sanitized DB errors", () => {
   it("duplicate band name returns 409 conflict without engine text", async () => {
     const res = await app.request(

@@ -9,11 +9,25 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export type ClaimSource = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  field: string;
+  value: unknown;
+  status: "confirmed" | "unconfirmed" | "disputed";
+  tier: number;
+  source_url: string;
+  accessed_at: string;
+  note: unknown;
+};
+
 export type BandDetail = {
   data: Record<string, unknown>;
   members: Record<string, unknown>[];
   releases: Record<string, unknown>[];
   media_links: Record<string, unknown>[];
+  sources: ClaimSource[];
 };
 
 export type BandGraph = {
@@ -38,11 +52,13 @@ export function useBand(id: string | undefined) {
 export type MemberDetail = {
   data: Record<string, unknown>;
   bands: Record<string, unknown>[];
+  sources: ClaimSource[];
 };
 
 export type ReleaseDetail = {
   data: Record<string, unknown>;
   media_links: Record<string, unknown>[];
+  sources: ClaimSource[];
 };
 
 // GET /api/members/:id — member + band history.
