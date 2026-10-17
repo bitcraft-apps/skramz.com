@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useBandGraph } from "./hooks";
 import { useGraphUIStore } from "./stores/graphUIStore";
 
@@ -9,6 +9,24 @@ const GRAPH_NODE_CAP = 500;
 
 type GraphNode = { id: string; name: string };
 type GraphLink = { source: string; target: string; via: string };
+
+// Paint node dots + names directly on canvas. nodeLabel alone is
+// hover-only, so names would otherwise be invisible.
+function paintNode(node: unknown, ctx: CanvasRenderingContext2D, globalScale: number) {
+  const n = node as { x?: number; y?: number; name?: unknown; id?: unknown };
+  const x = typeof n.x === "number" ? n.x : 0;
+  const y = typeof n.y === "number" ? n.y : 0;
+  const label = typeof n.name === "string" && n.name ? n.name : String(n.id ?? "");
+  ctx.fillStyle = "#1a1a1a";
+  ctx.beginPath();
+  ctx.arc(x, y, 5, 0, 2 * Math.PI);
+  ctx.fill();
+  const fontSize = Math.max(1, 12 / globalScale);
+  ctx.font = `${fontSize}px Sans-Serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(label, x, y + 7);
+}
 
 // Band relationship map: bands linked by shared members (via labels).
 // Node clicks navigate client-side.
@@ -19,6 +37,24 @@ export function GraphView({ id }: { id: string }) {
   const toggleLabels = useGraphUIStore((s) => s.toggleLabels);
   const navigate = useNavigate();
   const { data, isLoading, isError } = useBandGraph(id, depth);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 640, height: 480 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      setSize({
+        width: Math.max(1, Math.round(rect.width) || el.clientWidth || 640),
+        height: Math.max(1, Math.round(rect.height) || el.clientHeight || 480),
+      });
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const graph = useMemo((): { nodes: GraphNode[]; links: GraphLink[] } => {
     if (!data) return { nodes: [], links: [] };
@@ -32,6 +68,13 @@ export function GraphView({ id }: { id: string }) {
     return { nodes, links };
   }, [data]);
 
+  const names = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const n of graph.nodes) map.set(n.id, n.name || n.id);
+    return map;
+  }, [graph.nodes]);
+  const nameOf = (nodeId: string): string => names.get(nodeId) ?? nodeId;
+
   if (isLoading) return <section aria-label="band graph">loading graph</section>;
   if (isError || !data)
     return <section aria-label="band graph">graph unavailable</section>;
@@ -43,7 +86,7 @@ export function GraphView({ id }: { id: string }) {
     );
 
   return (
-    <section aria-label="band graph">
+    <section aria-label="band graph" style={{ width: "100%" }}>
       <div>
         <label>
           depth
@@ -74,17 +117,25 @@ export function GraphView({ id }: { id: string }) {
           showing first {GRAPH_NODE_CAP} of {data.nodes.length} bands
         </p>
       )}
-      <ForceGraph2D
-        graphData={graph}
-        nodeLabel="name"
-        linkLabel={showLabels ? "via" : undefined}
-        linkDirectionalArrowLength={3}
-        onNodeClick={(node) => navigate(`/bands/${String(node.id)}`)}
-      />
+      <div ref={containerRef} style={{ width: "100%", height: "70vh" }}>
+        <ForceGraph2D
+          width={size.width}
+          height={size.height}
+          graphData={graph}
+          nodeLabel="name"
+          nodeCanvasObject={paintNode}
+          linkLabel={showLabels ? "via" : undefined}
+          linkDirectionalArrowLength={3}
+          onNodeClick={(node) => navigate(`/bands/${String(node.id)}`)}
+        />
+      </div>
       <ul aria-label="graph connections">
         {graph.links.map((l) => (
           <li key={`${l.source}-${l.target}-${l.via}`}>
-            {showLabels ? `${l.source} to ${l.target} via ${l.via}` : `${l.source} to ${l.target}`}
+            <Link to={`/bands/${l.source}`}>{nameOf(l.source)}</Link>
+            {" to "}
+            <Link to={`/bands/${l.target}`}>{nameOf(l.target)}</Link>
+            {showLabels ? ` via ${l.via}` : ""}
           </li>
         ))}
       </ul>

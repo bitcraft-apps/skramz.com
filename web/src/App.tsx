@@ -1,8 +1,8 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Route, Routes, matchPath, useLocation } from "react-router-dom";
 import { PlayerSlot } from "./PlayerSlot";
-import { BandView, MemberView, ReleaseView } from "./encyclopedia";
+import { BandGraphPage, BandView, MemberView, ReleaseView } from "./encyclopedia";
 import { useBands, useSearch, type SearchResult } from "./hooks";
 import { queryClient } from "./queryClient";
 
@@ -210,6 +210,11 @@ function About() {
 // Root shell: nav + persistent player slot never unmount across routes;
 // only the <Routes> outlet swaps.
 export function App() {
+  // The graph page needs the full viewport width, so it skips the
+  // max-w-3xl content wrapper every other route uses.
+  const location = useLocation();
+  const isGraphPage =
+    matchPath("/bands/:id/graph", location.pathname) !== null;
   return (
     <QueryClientProvider client={queryClient}>
       <header className="border-b-[3px] border-ink bg-ink text-paper">
@@ -235,11 +240,12 @@ export function App() {
           <PlayerSlot />
         </div>
       </div>
-      <div className="mx-auto max-w-3xl px-4 py-6">
+      <div className={isGraphPage ? "w-full" : "mx-auto max-w-3xl px-4 py-6"}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/bands/:id" element={<BandView />} />
+          <Route path="/bands/:id/graph" element={<BandGraphPage />} />
           <Route path="/members/:id" element={<MemberView />} />
           <Route path="/releases/:id" element={<ReleaseView />} />
         </Routes>
