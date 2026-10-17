@@ -99,9 +99,11 @@ for band #200 is as safe as the first: human-readable SQL that a
 machine re-checks.
 
 - One file per band, with ids derived as `{band}-{kind}-{name-slug}`
-  (`oc-m-jeff-salane`, `cs-oc-formed`) — never invented opaque ids. A
-  derivable id means a UNIQUE conflict names the actual duplicate
-  (same band, same claim), not a typo to hunt down.
+  using the full band slug (`orchid-m-jeff-salane`,
+  `cs-orchid-formed`) — never invented opaque ids or cryptic
+  abbreviations. A readable, derivable id means a UNIQUE conflict
+  names the actual duplicate (same band, same claim), not a typo to
+  hunt down. There is no id length limit; clarity beats brevity.
 - Plain INSERTs only, so a conflict fails loudly. Never INSERT OR
   IGNORE (or REPLACE) under foreign keys: a skipped parent row with
   inserted children is silent corruption, and at scale nobody will
