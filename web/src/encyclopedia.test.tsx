@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -81,6 +81,77 @@ describe("encyclopedia band view", () => {
     renderBand();
     await screen.findByText("Probe Band");
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+});
+
+describe("band hero", () => {
+  const heroPayload = {
+    ...bandPayload,
+    data: {
+      ...bandPayload.data,
+      location: "Portland",
+      formed_year: 1998,
+      disbanded_year: null,
+      bio: "Loud basement trio.",
+    },
+    media_links: [
+      {
+        id: "l1",
+        provider: "bandcamp",
+        url: "https://bandcamp.example/x",
+        embed_url: "https://embed.example/bc",
+      },
+    ],
+  };
+
+  it("shows location, years, and bio meta when present", async () => {
+    stubApi(heroPayload);
+    renderBand();
+    const hero = await screen.findByLabelText("band hero");
+    expect(within(hero).getByText("Probe Band")).toBeInTheDocument();
+    expect(within(hero).getByText(/Portland/)).toBeInTheDocument();
+    expect(within(hero).getByText(/formed 1998/)).toBeInTheDocument();
+    expect(
+      within(hero).getByText("Loud basement trio."),
+    ).toBeInTheDocument();
+  });
+
+  it("hides each meta line when its field is blank", async () => {
+    stubApi(bandPayload);
+    renderBand();
+    const hero = await screen.findByLabelText("band hero");
+    expect(within(hero).queryByText(/Portland/)).not.toBeInTheDocument();
+    expect(within(hero).queryByText(/formed/)).not.toBeInTheDocument();
+    expect(within(hero).queryByText(/disbanded/)).not.toBeInTheDocument();
+  });
+
+  it("plays the first embed through the persistent player queue", async () => {
+    const user = userEvent.setup();
+    stubApi(heroPayload);
+    renderBand();
+    const hero = await screen.findByLabelText("band hero");
+    await user.click(within(hero).getByRole("button", { name: "play" }));
+    const s = usePlayerStore.getState();
+    expect(s.current).toBe("https://embed.example/bc");
+    expect(s.queue).toEqual(["https://embed.example/bc"]);
+    expect(s.isPlaying).toBe(true);
+    expect(screen.getByTestId("player-embed")).toHaveAttribute(
+      "src",
+      "https://embed.example/bc",
+    );
+  });
+
+  it("shows no play button and keeps the empty state with zero embeds", async () => {
+    stubApi(bandPayload);
+    renderBand();
+    const hero = await screen.findByLabelText("band hero");
+    expect(
+      within(hero).queryByRole("button", { name: "play" }),
+    ).not.toBeInTheDocument();
+    expect(
+      await screen.findByText("No streams yet."),
+    ).toBeInTheDocument();
+    expect(usePlayerStore.getState().current).toBeNull();
   });
 });
 

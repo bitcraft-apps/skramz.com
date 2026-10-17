@@ -12,6 +12,13 @@ function str(record: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+// Non-blank embed_url, or null when the link is outbound-only.
+function embedUrl(link: Record<string, unknown>): string | null {
+  return typeof link.embed_url === "string" && link.embed_url.trim()
+    ? link.embed_url
+    : null;
+}
+
 // Shared listen section for band + release views. Zero links render a
 // graceful empty state instead of an empty list. Rows without an embed_url
 // stay playable via their outbound url (fallback link); only embed URLs
@@ -21,10 +28,6 @@ function ListenList({ links }: { links: Record<string, unknown>[] }) {
     (link) => typeof link.id === "string" && typeof link.url === "string",
   );
   if (items.length === 0) return <p>No streams yet.</p>;
-  const embedUrl = (link: Record<string, unknown>): string | null =>
-    typeof link.embed_url === "string" && link.embed_url.trim()
-      ? link.embed_url
-      : null;
   const playFrom = (start: string) => {
     const api = usePlayerStore.getState();
     for (const item of items) {
@@ -67,41 +70,159 @@ export function BandGraphPage() {
   );
 }
 
+const BTN =
+  "zine-border zine-shadow-sm inline-block cursor-pointer bg-paper px-3 py-1 text-sm font-bold uppercase hover:bg-acid";
+
+const NOTICE =
+  "zine-border inline-block bg-acid px-2 py-1 text-sm font-bold uppercase";
+
+function year(value: unknown): string {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return "";
+}
+
 export function BandView() {
   const { id } = useParams();
-  const { data, isSuccess } = useBand(id);
-  if (!isSuccess) return <main>loading</main>;
+  const { data, isPending, isError, isSuccess, refetch } = useBand(id);
+  if (isPending) {
+    return (
+      <main>
+        <p className={NOTICE}>loading</p>
+      </main>
+    );
+  }
+  if (isError || !isSuccess) {
+    return (
+      <main>
+        <div className="zine-border zine-shadow bg-paper p-3">
+          <p className="text-sm font-bold uppercase">failed to load band</p>
+          <div className="mt-2">
+            <button type="button" onClick={() => refetch()} className={BTN}>
+              retry
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
   const band = data.data;
+  const name = str(band, "name");
   const photo = artUrl(band.photo_r2_key);
+  const location = str(band, "location").trim();
+  const formed = year(band.formed_year);
+  const disbanded = year(band.disbanded_year);
+  const meta = [
+    location,
+    formed && `formed ${formed}`,
+    disbanded && `disbanded ${disbanded}`,
+  ].filter(Boolean);
+  const bio = str(band, "bio").trim();
+  const embeds = data.media_links
+    .map(embedUrl)
+    .filter((url): url is string => url !== null);
+  const playFirst = () => {
+    const api = usePlayerStore.getState();
+    for (const url of embeds) {
+      api.enqueue(url);
+    }
+    api.play(embeds[0]);
+  };
   return (
     <main>
-      <h1>{str(band, "name")}</h1>
-      {photo && <img src={photo} alt={`${str(band, "name")} photo`} />}
-      <p>
-        <Link to={`/bands/${str(band, "id")}/graph`}>relationship map →</Link>
-      </p>
-      <h2>members</h2>
-      <ul>
-        {data.members.map((m) => (
-          <li key={str(m, "id")}>
-            <Link to={`/members/${str(m, "id")}`}>{str(m, "name")}</Link>
-          </li>
-        ))}
-      </ul>
-      <h2>releases</h2>
-      <ul>
-        {data.releases.map((r) => {
-          const cover = artUrl(r.cover_r2_key);
-          return (
-            <li key={str(r, "id")}>
-              <Link to={`/releases/${str(r, "id")}`}>{str(r, "title")}</Link>
-              {cover && <img src={cover} alt={`${str(r, "title")} cover`} />}
+      <section
+        aria-label="band hero"
+        className="zine-border zine-shadow bg-paper p-4"
+      >
+        <h1 className="bg-ink text-paper inline-block px-2 py-1 text-2xl font-bold uppercase">
+          {name}
+        </h1>
+        {meta.length > 0 && (
+          <p className="mt-2 text-sm font-bold uppercase">{meta.join(" · ")}</p>
+        )}
+        {photo && (
+          <img
+            src={photo}
+            alt={`${name} photo`}
+            className="zine-border zine-shadow-sm mt-3 w-full"
+          />
+        )}
+        {bio && <p className="mt-3 max-w-prose text-sm leading-relaxed">{bio}</p>}
+        {embeds.length > 0 && (
+          <div className="mt-3">
+            <button type="button" onClick={playFirst} className={BTN}>
+              play
+            </button>
+          </div>
+        )}
+        <p className="mt-3">
+          <Link
+            to={`/bands/${str(band, "id")}/graph`}
+            className="font-bold underline hover:bg-acid"
+          >
+            relationship map →
+          </Link>
+        </p>
+      </section>
+      <section
+        aria-label="members"
+        className="zine-border zine-shadow mt-4 bg-paper"
+      >
+        <h2 className="border-b-[3px] border-ink bg-acid px-3 py-1 text-sm font-bold uppercase">
+          members
+        </h2>
+        <ul>
+          {data.members.map((m) => (
+            <li
+              key={str(m, "id")}
+              className="border-t-[3px] border-ink first:border-t-0"
+            >
+              <Link
+                to={`/members/${str(m, "id")}`}
+                className="block px-3 py-2 font-bold hover:bg-acid"
+              >
+                {str(m, "name")}
+              </Link>
             </li>
-          );
-        })}
-      </ul>
-      <h2>listen</h2>
-      <ListenList links={data.media_links} />
+          ))}
+        </ul>
+      </section>
+      <section
+        aria-label="releases"
+        className="zine-border zine-shadow mt-4 bg-paper"
+      >
+        <h2 className="border-b-[3px] border-ink bg-acid px-3 py-1 text-sm font-bold uppercase">
+          releases
+        </h2>
+        <ul>
+          {data.releases.map((r) => {
+            const cover = artUrl(r.cover_r2_key);
+            return (
+              <li
+                key={str(r, "id")}
+                className="border-t-[3px] border-ink first:border-t-0"
+              >
+                <Link
+                  to={`/releases/${str(r, "id")}`}
+                  className="block px-3 py-2 font-bold hover:bg-acid"
+                >
+                  {str(r, "title")}
+                </Link>
+                {cover && <img src={cover} alt={`${str(r, "title")} cover`} />}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      <section
+        aria-label="listen"
+        className="zine-border zine-shadow mt-4 bg-paper p-3"
+      >
+        <h2 className="text-sm font-bold uppercase">listen</h2>
+        <div className="mt-2">
+          <ListenList links={data.media_links} />
+        </div>
+      </section>
     </main>
   );
 }
