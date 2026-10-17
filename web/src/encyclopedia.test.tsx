@@ -178,33 +178,59 @@ describe("band evidence", () => {
     expect(within(hero).getByText(/last reviewed 2026-10-17/)).toBeInTheDocument();
   });
 
-  it("badges the gapped member row unconfirmed and links the confirmed role", async () => {
+  it("badges the gapped member row and links the confirmed role", async () => {
     stubApi(evidencePayload);
     renderBand();
     const members = await screen.findByLabelText("members");
-    expect(within(members).getByText("unconfirmed")).toBeInTheDocument();
+    expect(within(members).getByText("not yet confirmed")).toBeInTheDocument();
     expect(within(members).getByText("drums")).toBeInTheDocument();
-    const roleLink = within(members).getByRole("link", { name: "source" });
+    const roleLink = within(members).getByRole("link", { name: "source: example" });
     expect(roleLink).toHaveAttribute("href", "https://example.com/drums");
   });
 
-  it("lists disputed rivals with values and links in record notes", async () => {
+  it("lists disagreeing values with links in how-we-know-this notes", async () => {
     stubApi(evidencePayload);
     renderBand();
-    const notes = await screen.findByLabelText("record notes");
-    expect(within(notes).getByText("disputed")).toBeInTheDocument();
+    const notes = await screen.findByLabelText("how we know this");
+    expect(within(notes).getByText("sources disagree")).toBeInTheDocument();
     expect(within(notes).getByText(/1997/)).toBeInTheDocument();
-    expect(within(notes).getAllByText(/rival copy/).length).toBeGreaterThan(0);
-    const hrefs = within(notes).getAllByRole("link", { name: "source" }).map((a) => a.getAttribute("href"));
+    expect(within(notes).queryByText(/rival copy/)).not.toBeInTheDocument();
+    const hrefs = within(notes).getAllByRole("link", { name: "source: example" }).map((a) => a.getAttribute("href"));
     expect(hrefs).toContain("https://example.com/rival");
   });
 
-  it("renders honest unknown freshness and no notes without sources", async () => {
+  it("writes ledger rows as human sentences with source kinds, never schema ids", async () => {
+    stubApi(evidencePayload);
+    renderBand();
+    const notes = await screen.findByLabelText("how we know this");
+    expect(within(notes).getByText(/formed/)).toBeInTheDocument();
+    expect(within(notes).queryByText(/formed_year/)).not.toBeInTheDocument();
+    expect(within(notes).queryByText(/band_member/)).not.toBeInTheDocument();
+    expect(within(notes).getByText(/community source/)).toBeInTheDocument();
+    expect(within(notes).getByText(/official source/)).toBeInTheDocument();
+  });
+
+  it("counts agreeing community sources instead of repeating the claim", async () => {
+    stubApi({
+      ...evidencePayload,
+      sources: [
+        { id: "csA", entity_type: "band_member", entity_id: "bm3", field: "role", value: "guitar", status: "unconfirmed", tier: 3, source_url: "https://example.com/a", accessed_at: "2026-10-17", note: null },
+        { id: "csB", entity_type: "band_member", entity_id: "bm3", field: "role", value: "guitar", status: "unconfirmed", tier: 3, source_url: "https://example.com/b", accessed_at: "2026-10-17", note: null },
+      ],
+    });
+    renderBand();
+    const notes = await screen.findByLabelText("how we know this");
+    expect(within(notes).getByText(/2 community sources agree/)).toBeInTheDocument();
+    const hrefs = within(notes).getAllByRole("link", { name: "source: example" }).map((a) => a.getAttribute("href"));
+    expect(hrefs).toEqual(expect.arrayContaining(["https://example.com/a", "https://example.com/b"]));
+  });
+
+  it("renders honest unreviewed freshness and no notes without sources", async () => {
     stubApi(bandPayload);
     renderBand();
     const hero = await screen.findByLabelText("band hero");
-    expect(within(hero).getByText(/last reviewed unknown/)).toBeInTheDocument();
-    expect(screen.queryByLabelText("record notes")).not.toBeInTheDocument();
+    expect(within(hero).getByText(/not yet reviewed/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("how we know this")).not.toBeInTheDocument();
   });
 });
 

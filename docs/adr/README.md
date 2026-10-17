@@ -9,4 +9,6 @@ Index:
 - [0001: D1 database + single Worker](0001-d1-database-worker.md) (accepted)
 - [0002: API route-module layout](0002-api-route-modules.md) (proposed)
 - [0003: API error-message hygiene](0003-api-error-hygiene.md) (proposed)
+- [0004: Frontend stack — Vite + React SPA on Workers Static Assets](0004-frontend-stack.md) (accepted)
 - [0005: Claim-level sources sidecar](0005-claim-sources-sidecar.md) (proposed)
+- [0006: Evidence reader labels](0006-evidence-reader-labels.md) (proposed)
