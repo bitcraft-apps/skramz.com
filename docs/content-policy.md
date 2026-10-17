@@ -25,22 +25,46 @@ Every factual claim needs a legal source stored with `source_url + accessed_at`.
   a directly attested display value. The display keeps the directly
   attested value; the derivation stays as a linked disagreeing row.
 
-### Settled source register (first consumers: Yaphet Kotto, Orchid)
+### Source classes
 
-These sources are agreed T1/T2 for the first seeds. Anything else starts
-at T3 until a curator argues it up in the PR body.
+- **Primary (T1):** liner notes and physical release credits, official
+  band/label sites and accounts, direct artist statements, Bandcamp
+  artist pages for the artist's own claims.
+- **Curated databases (T2 with history, T3 without):** Discogs,
+  MusicBrainz, Encyclopaedia Metallum (metal only), RateYourMusic. The
+  "entry with history" test from the rubric decides each entry —
+  release-level evidence, submission history, reviews, lists. A bare
+  stub is T3 no matter the domain.
+- **Press (T2 established, T3 small):** books, major outlets, venues,
+  festivals vs zines, blogs, fan wikis.
+- **Tertiary (inherits, never above):** Wikipedia/Wikidata take the tier
+  of the references behind the claim, capped at T2; an unreferenced
+  line is T3.
+- **Archives take their artifact's tier:** an Internet Archive scan of
+  liner notes is primary; a forum scrape is a tip.
 
-- T1: `ebullition.com` label catalog + official band/artist statements.
-- T2: `discogs.com` artist entries with history (band pages and member
-  pages that name roles), `musicbrainz.org` entries with history,
-  established press (`loudersound.com` and equivalents).
-- T3: `wikipedia.org` band pages, `diymusicwiki.com`, forums, user tips.
+### Within-tier precedence
+
+- T1 internal: direct artist statement outranks official discography
+  data, which outranks label marketing prose (prose goes interpretive
+  fast; the derived-values rule applies).
+- T2 conflict: most independent sources wins; tie → newest; the loser
+  is noted, never deleted. Neither Discogs nor MusicBrainz outranks the
+  other alone — that is what "do we need both" means: both help.
+- A lone T2 confirms when unopposed. Corroboration only breaks ties.
+
+### Agreed starting points (first consumers)
+
+- Yaphet Kotto: `ebullition.com` catalog (T1), `discogs.com` artist and
+  member pages with history (T2).
+- Orchid: `discogs.com` band page (T2: five members, 1997–2002),
+  `musicbrainz.org` label entry (T2), `loudersound.com` (T2 press).
 
 ## 2. Statuses
 
 `confirmed` (has source) | `unconfirmed` (no source) | `disputed` (sources disagree).
 
-Never write or upgrade to `confirmed` without `source_url + accessed_at`. Never present `unconfirmed` / `disputed` as fact. Highest tier wins the displayed value; the loser stays as `disputed` with its source link, never silently overwritten or deleted. Same-tier conflict: show the newest, note the rival.
+Never write or upgrade to `confirmed` without `source_url + accessed_at`. Never present `unconfirmed` / `disputed` as fact. Highest tier wins the displayed value; the loser stays as `disputed` with its source link, never silently overwritten or deleted. Same-tier conflict: most independent sources wins; tie → newest; note the rival.
 
 ## 3. Text
 
