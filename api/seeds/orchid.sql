@@ -1,15 +1,18 @@
 -- Orchid seed: second curated record, proving the Yaphet Kotto conventions
 -- transfer to a band with thinner sources. Same rules: display tables keep
 -- winning values only (NULL = visible gap); every claim has evidence in
--- claim_sources; bio is own words. Only Jayson Green and Will Killingsworth
--- clear the T1/T2 bar (Discogs member pages name their Orchid roles); the
--- rest are community leads, and Brad Wallace is disputed (one community
--- source lists a fifth member; peer lists name four).
+-- claim_sources; bio is own words. The Discogs band page (T2, entry with
+-- history) lists all five members and dates the band 1997-2002, so
+-- memberships and years are confirmed; only instrument roles beyond Jayson
+-- Green (vocals) and Will Killingsworth (guitar) stay community leads.
+-- (An earlier revision wrongly marked Brad Wallace disputed by treating one
+-- Wikipedia line as the only source for a fifth member; the Discogs member
+-- list names five, so there is no dispute.)
 -- Apply once per database with `task seed SEED=orchid.sql`. Plain INSERTs:
 -- a UNIQUE conflict means the record exists — merge by hand, never
 -- INSERT OR IGNORE under foreign keys. Fixed ids. Portable SQLite.
 INSERT INTO bands (id, name, name_norm, formed_year, disbanded_year, location, bio) VALUES
-  ('band-orchid', 'Orchid', 'orchid', NULL, NULL,
+  ('band-orchid', 'Orchid', 'orchid', 1997, 2002,
    'Amherst, Massachusetts',
    'Emotive hardcore band from Amherst, Massachusetts. Three LPs on Ebullition plus splits and EPs.');
 
@@ -34,12 +37,12 @@ INSERT INTO claim_sources (id, entity_type, entity_id, field, value, status, tie
   ('cs-oc-location', 'band', 'band-orchid', 'location', 'Amherst, Massachusetts', 'confirmed', 2,
    'https://www.loudersound.com/features/this-is-hardcore-orchid-chaos-is-me', '2026-10-17',
    'Press feature: formed while members were in college; drummer at UMass in Amherst.'),
-  ('cs-oc-formed', 'band', 'band-orchid', 'formed_year', '1997', 'unconfirmed', 3,
-   'https://en.wikipedia.org/wiki/Orchid_(screamo_band)', '2026-10-17',
-   'Community lead only; display stays NULL until a T1/T2 source confirms.'),
-  ('cs-oc-disbanded', 'band', 'band-orchid', 'disbanded_year', '2002', 'unconfirmed', 3,
-   'https://en.wikipedia.org/wiki/Orchid_(screamo_band)', '2026-10-17',
-   'Community lead only; display stays NULL until a T1/T2 source confirms.'),
+  ('cs-oc-formed', 'band', 'band-orchid', 'formed_year', '1997', 'confirmed', 2,
+   'https://www.discogs.com/artist/686010-Orchid-3', '2026-10-17',
+   'Band profile: formed in early 1997.'),
+  ('cs-oc-disbanded', 'band', 'band-orchid', 'disbanded_year', '2002', 'confirmed', 2,
+   'https://www.discogs.com/artist/686010-Orchid-3', '2026-10-17',
+   'Band profile: disbanded in 2002.'),
   ('cs-oc-bio', 'band', 'band-orchid', 'bio', NULL, 'confirmed', 2,
    'https://musicbrainz.org/label/bd2c9ba4-c4c6-4829-a2e7-b4942bd26871', '2026-10-17',
    'Own-words summary of the label discography spine.'),
@@ -49,15 +52,15 @@ INSERT INTO claim_sources (id, entity_type, entity_id, field, value, status, tie
   ('cs-oc-mb-will-killingsworth', 'band_member', 'oc-bm-will-killingsworth', 'membership', 'Will Killingsworth', 'confirmed', 2,
    'https://www.discogs.com/artist/495765-Will-Killingsworth', '2026-10-17',
    'Member page: played guitar in Orchid.'),
-  ('cs-oc-mb-jeff-salane', 'band_member', 'oc-bm-jeff-salane', 'membership', 'Jeff Salane', 'unconfirmed', 3,
-   'https://en.wikipedia.org/wiki/Orchid_(screamo_band)', '2026-10-17',
-   'Community lead only.'),
-  ('cs-oc-mb-geoff-garlock', 'band_member', 'oc-bm-geoff-garlock', 'membership', 'Geoff Garlock', 'unconfirmed', 3,
-   'https://en.wikipedia.org/wiki/Orchid_(screamo_band)', '2026-10-17',
-   'Community lead only.'),
-  ('cs-oc-mb-brad-wallace', 'band_member', 'oc-bm-brad-wallace', 'membership', 'Brad Wallace', 'disputed', 3,
-   'https://en.wikipedia.org/wiki/Orchid_(screamo_band)', '2026-10-17',
-   'Only this community source lists a fifth member; peer lists name four. Row stays disputed.'),
+  ('cs-oc-mb-jeff-salane', 'band_member', 'oc-bm-jeff-salane', 'membership', 'Jeff Salane', 'confirmed', 2,
+   'https://www.discogs.com/artist/686010-Orchid-3', '2026-10-17',
+   'Band page member list; page spells "Jeffrey Salane".'),
+  ('cs-oc-mb-geoff-garlock', 'band_member', 'oc-bm-geoff-garlock', 'membership', 'Geoff Garlock', 'confirmed', 2,
+   'https://www.discogs.com/artist/686010-Orchid-3', '2026-10-17',
+   'Band page member list.'),
+  ('cs-oc-mb-brad-wallace', 'band_member', 'oc-bm-brad-wallace', 'membership', 'Brad Wallace', 'confirmed', 2,
+   'https://www.discogs.com/artist/686010-Orchid-3', '2026-10-17',
+   'Band page member list names five; no rival, so no dispute.'),
   ('cs-oc-role-jayson', 'band_member', 'oc-bm-jayson-green', 'role', 'vocals', 'confirmed', 2,
    'https://www.discogs.com/artist/751217-Jayson-Green', '2026-10-17', NULL),
   ('cs-oc-role-will', 'band_member', 'oc-bm-will-killingsworth', 'role', 'guitar', 'confirmed', 2,
@@ -70,7 +73,7 @@ INSERT INTO claim_sources (id, entity_type, entity_id, field, value, status, tie
    'Community lead only; display stays NULL until a T1/T2 source confirms.'),
   ('cs-oc-role-brad', 'band_member', 'oc-bm-brad-wallace', 'role', 'guitar', 'unconfirmed', 3,
    'https://en.wikipedia.org/wiki/Orchid_(screamo_band)', '2026-10-17',
-   'Community lead only; membership itself is disputed, so this stays buried until confirmed.');
+   'Community lead only; display stays NULL until a T1/T2 source confirms.');
 
 -- Last-reviewed stamp for every row this seed owns (the review date doubles
 -- as the freshness badge until a later write touches the row).
