@@ -56,8 +56,12 @@ export function GraphView({ id }: { id: string }) {
     return () => observer.disconnect();
   }, []);
 
-  const graph = useMemo((): { nodes: GraphNode[]; links: GraphLink[] } => {
-    if (!data) return { nodes: [], links: [] };
+  const graph = useMemo((): {
+    nodes: GraphNode[];
+    links: GraphLink[];
+    names: Map<string, string>;
+  } => {
+    if (!data) return { nodes: [], links: [], names: new Map() };
     const nodes = data.nodes
       .slice(0, GRAPH_NODE_CAP)
       .map((n) => ({ id: n.id, name: n.name }));
@@ -65,15 +69,12 @@ export function GraphView({ id }: { id: string }) {
     const links = data.edges
       .filter((e) => kept.has(e.from) && kept.has(e.to))
       .map((e) => ({ source: e.from, target: e.to, via: e.via }));
-    return { nodes, links };
+    const names = new Map<string, string>(
+      nodes.map((n): [string, string] => [n.id, n.name || n.id]),
+    );
+    return { nodes, links, names };
   }, [data]);
-
-  const names = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const n of graph.nodes) map.set(n.id, n.name || n.id);
-    return map;
-  }, [graph.nodes]);
-  const nameOf = (nodeId: string): string => names.get(nodeId) ?? nodeId;
+  const nameOf = (nodeId: string): string => graph.names.get(nodeId) ?? nodeId;
 
   if (isLoading) return <section aria-label="band graph">loading graph</section>;
   if (isError || !data)
@@ -86,7 +87,7 @@ export function GraphView({ id }: { id: string }) {
     );
 
   return (
-    <section aria-label="band graph" style={{ width: "100%" }}>
+    <section aria-label="band graph" className="w-full">
       <div>
         <label>
           depth
@@ -117,7 +118,7 @@ export function GraphView({ id }: { id: string }) {
           showing first {GRAPH_NODE_CAP} of {data.nodes.length} bands
         </p>
       )}
-      <div ref={containerRef} style={{ width: "100%", height: "70vh" }}>
+      <div ref={containerRef} className="h-[70vh] w-full">
         <ForceGraph2D
           width={size.width}
           height={size.height}

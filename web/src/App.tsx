@@ -1,6 +1,6 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, Route, Routes, matchPath, useLocation } from "react-router-dom";
+import { Link, Route, Routes, useMatch } from "react-router-dom";
 import { PlayerSlot } from "./PlayerSlot";
 import { BandGraphPage, BandView, MemberView, ReleaseView } from "./encyclopedia";
 import { useBands, useSearch, type SearchResult } from "./hooks";
@@ -212,9 +212,7 @@ function About() {
 export function App() {
   // The graph page needs the full viewport width, so it skips the
   // max-w-3xl content wrapper every other route uses.
-  const location = useLocation();
-  const isGraphPage =
-    matchPath("/bands/:id/graph", location.pathname) !== null;
+  const isGraphPage = useMatch("/bands/:id/graph") !== null;
   return (
     <QueryClientProvider client={queryClient}>
       <header className="border-b-[3px] border-ink bg-ink text-paper">

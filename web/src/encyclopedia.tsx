@@ -59,7 +59,7 @@ function ListenList({ links }: { links: Record<string, unknown>[] }) {
 export function BandGraphPage() {
   const { id } = useParams();
   return (
-    <main aria-label="band graph page" style={{ width: "100%" }}>
+    <main aria-label="band graph page" className="w-full">
       <Suspense fallback={<section aria-label="band graph">loading graph</section>}>
         <GraphView id={typeof id === "string" ? id : ""} />
       </Suspense>
