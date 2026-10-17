@@ -12,54 +12,29 @@ Every factual claim needs a legal source stored with `source_url + accessed_at`.
 
 ### Tier assignment rubric
 
-- **"Entry with history" (T2)** means a Discogs / MusicBrainz entry with
-  visible submission history plus real catalogue depth (releases with
-  multiple versions, reviews, or lists). A bare stub with no history is T3.
-- **Press (T2)** means an established outlet with editorial history.
-  Small zines, blogs, and fan wikis are T3 even when long-running.
-- **Bare tips (T3, lead only):** a single forum/social comment, an
-  uncorroborated user tip, a one-line wiki addition with no source.
-- **Derived values are evidence, never display candidates:** arithmetic or
-  inference from a source (e.g. "~1997" computed from label copy saying
-  "active seven years") keeps its tier as a source row but cannot displace
-  a directly attested display value. The display keeps the directly
-  attested value; the derivation stays as a linked disagreeing row.
+- **"Entry with history" (T2)** means a Discogs / MusicBrainz entry with visible submission history plus real catalogue depth (releases with multiple versions, reviews, or lists). A bare stub with no history is T3.
+- **Press (T2)** means an established outlet with editorial history. Small zines, blogs, and fan wikis are T3 even when long-running.
+- **Bare tips (T3, lead only):** a single forum/social comment, an uncorroborated user tip, a one-line wiki addition with no source.
+- **Derived values are evidence, never display candidates:** arithmetic or inference from a source (e.g. "~1997" computed from label copy saying "active seven years") keeps its tier as a source row but cannot displace a directly attested display value. The display keeps the directly attested value; the derivation stays as a linked disagreeing row.
 
 ### Source classes
 
-- **Primary (T1):** liner notes and physical release credits, official
-  band/label sites and accounts, direct artist statements, Bandcamp
-  artist pages for the artist's own claims.
-- **Curated databases (T2 with history, T3 without):** Discogs,
-  MusicBrainz, RateYourMusic. Genre-scoped databases with strict
-  moderation qualify too — argue per band in the PR body. The
-  "entry with history" test from the rubric decides each entry —
-  release-level evidence, submission history, reviews, lists. A bare
-  stub is T3 no matter the domain.
-- **Press (T2 established, T3 small):** books, major outlets, venues,
-  festivals vs zines, blogs, fan wikis.
-- **Tertiary (inherits, never above):** Wikipedia/Wikidata take the tier
-  of the references behind the claim, capped at T2; an unreferenced
-  line is T3.
-- **Archives take their artifact's tier:** an Internet Archive scan of
-  liner notes is primary; a forum scrape is a tip.
+- **Primary (T1):** liner notes and physical release credits, official band/label sites and accounts, direct artist statements, Bandcamp artist pages for the artist's own claims.
+- **Curated databases (T2 with history, T3 without):** Discogs, MusicBrainz, RateYourMusic. Genre-scoped databases with strict moderation qualify too — argue per band in the PR body. The "entry with history" test from the rubric decides each entry — release-level evidence, submission history, reviews, lists. A bare stub is T3 no matter the domain.
+- **Press (T2 established, T3 small):** books, major outlets, venues, festivals vs zines, blogs, fan wikis.
+- **Tertiary (inherits, never above):** Wikipedia/Wikidata take the tier of the references behind the claim, capped at T2; an unreferenced line is T3.
+- **Archives take their artifact's tier:** an Internet Archive scan of liner notes is primary; a forum scrape is a tip.
 
 ### Within-tier precedence
 
-- T1 internal: direct artist statement outranks official discography
-  data, which outranks label marketing prose (prose goes interpretive
-  fast; the derived-values rule applies).
-- T2 conflict: most independent sources wins; tie → newest; the loser
-  is noted, never deleted. Neither Discogs nor MusicBrainz outranks the
-  other alone — that is what "do we need both" means: both help.
+- T1 internal: direct artist statement outranks official discography data, which outranks label marketing prose (prose goes interpretive fast; the derived-values rule applies).
+- T2 conflict: most independent sources wins; tie → newest; the loser is noted, never deleted. Neither Discogs nor MusicBrainz outranks the other alone — that is what "do we need both" means: both help.
 - A lone T2 confirms when unopposed. Corroboration only breaks ties.
 
 ### Agreed starting points (first consumers)
 
-- Yaphet Kotto: `ebullition.com` catalog (T1), `discogs.com` artist and
-  member pages with history (T2).
-- Orchid: `discogs.com` band page (T2: five members, 1997–2002),
-  `musicbrainz.org` label entry (T2), `loudersound.com` (T2 press).
+- Yaphet Kotto: `ebullition.com` catalog (T1), `discogs.com` artist and member pages with history (T2).
+- Orchid: `discogs.com` band page (T2: five members, 1997–2002), `musicbrainz.org` label entry (T2), `loudersound.com` (T2 press).
 
 ## 2. Statuses
 
@@ -99,23 +74,9 @@ the seed owns, how to apply it, and what a conflict means — nothing
 more. Each rule below exists so the seed for band #200 is as safe as
 the first: human-readable SQL that a machine re-checks.
 
-- One file per band, with ids derived as `{band}-{kind}-{name-slug}`
-  using the full band slug (`orchid-m-jeff-salane`,
-  `cs-orchid-formed`) — never invented opaque ids or cryptic
-  abbreviations. A readable, derivable id means a UNIQUE conflict
-  names the actual duplicate (same band, same claim), not a typo to
-  hunt down. There is no id length limit; clarity beats brevity.
-- Plain INSERTs only, so a conflict fails loudly. Never INSERT OR
-  IGNORE (or REPLACE) under foreign keys: a skipped parent row with
-  inserted children is silent corruption, and at scale nobody will
-  notice it by reading.
+- One file per band, with ids derived as `{band}-{kind}-{name-slug}` using the full band slug (`orchid-m-jeff-salane`, `cs-orchid-formed`) — never invented opaque ids or cryptic abbreviations. A readable, derivable id means a UNIQUE conflict names the actual duplicate (same band, same claim), not a typo to hunt down. There is no id length limit; clarity beats brevity.
+- Plain INSERTs only, so a conflict fails loudly. Never INSERT OR IGNORE (or REPLACE) under foreign keys: a skipped parent row with inserted children is silent corruption, and at scale nobody will notice it by reading.
 - NULL is an honest gap: blanks allowed wherever no source clears the bar.
-- Every display value needs a source row or it stays `unconfirmed`.
-  Corrections follow §5.
-- After applying a seed, run `api/seeds/verify.sql` against the same
-  database: every query in it hunts one structural corruption (orphan
-  edges, orphan evidence). Any row returned rejects the seed — fix the
-  file, re-apply from a fresh database, never patch around it.
-- `claim_sources.note` is an internal working note for future curators,
-  never rendered. Note style rules arrive with Phase 5, when seeds
-  actually carry notes.
+- Every display value needs a source row or it stays `unconfirmed`. Corrections follow §5.
+- After applying a seed, run `api/seeds/verify.sql` against the same database: every query in it hunts one structural corruption (orphan edges, orphan evidence). Any row returned rejects the seed — fix the file, re-apply from a fresh database, never patch around it.
+- `claim_sources.note` is an internal working note for future curators, never rendered. Note style rules arrive with Phase 5, when seeds actually carry notes.
