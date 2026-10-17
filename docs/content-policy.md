@@ -31,7 +31,8 @@ Every factual claim needs a legal source stored with `source_url + accessed_at`.
   band/label sites and accounts, direct artist statements, Bandcamp
   artist pages for the artist's own claims.
 - **Curated databases (T2 with history, T3 without):** Discogs,
-  MusicBrainz, Encyclopaedia Metallum (metal only), RateYourMusic. The
+  MusicBrainz, RateYourMusic. Genre-scoped databases with strict
+  moderation qualify too — argue per band in the PR body. The
   "entry with history" test from the rubric decides each entry —
   release-level evidence, submission history, reviews, lists. A bare
   stub is T3 no matter the domain.
