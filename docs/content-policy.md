@@ -10,11 +10,30 @@ Every factual claim needs a legal source stored with `source_url + accessed_at`.
 - **Tier 2 — reputable:** established press, books, venues, festivals, MusicBrainz / Discogs entries with history.
 - **Tier 3 — community:** small press, zines, fan wikis, forums, user tips. Never overrides T1/T2.
 
+### Tier assignment rubric
+
+- **"Entry with history" (T2)** means a Discogs / MusicBrainz entry with visible submission history plus real catalogue depth (releases with multiple versions, reviews, or lists). A bare stub with no history is T3.
+- **Bare tips (T3, lead only):** a single forum/social comment, an uncorroborated user tip, a one-line wiki addition with no source.
+- **Derived values are evidence, never display candidates:** arithmetic or inference from a source keeps its tier as a source row but cannot displace a directly attested display value.
+
+### Source classes
+
+- **Primary (T1):** liner notes and physical release credits, official band/label sites and accounts, direct artist statements, Bandcamp artist pages for the artist's own claims.
+- **Curated databases:** Discogs, MusicBrainz, RateYourMusic. The "entry with history" test decides each entry — T2 with history, T3 without. Genre-scoped databases with strict moderation qualify too — argue per band in the PR body.
+- **Press:** established outlets with editorial history are T2; zines, blogs, and fan wikis are T3.
+- **Tertiary (inherits, never above):** Wikipedia/Wikidata take the tier of the references behind the claim, capped at T2; an unreferenced line is T3.
+- **Archives take their artifact's tier:** an Internet Archive scan of liner notes is primary; a forum scrape is a tip.
+
+### Within-tier precedence
+
+- T1: direct artist statement outranks discography data, which outranks label marketing prose.
+- T2 conflict: most independent sources wins; tie → newest; the loser stays as `disputed`, never deleted.
+
 ## 2. Statuses
 
 `confirmed` (has source) | `unconfirmed` (no source) | `disputed` (sources disagree).
 
-Never write or upgrade to `confirmed` without `source_url + accessed_at`. Never present `unconfirmed` / `disputed` as fact. Highest tier wins the displayed value; the loser stays as `disputed` with its source link, never silently overwritten or deleted. Same-tier conflict: show the newest, note the rival.
+Never write or upgrade to `confirmed` without `source_url + accessed_at`. Never present `unconfirmed` / `disputed` as fact. Highest tier wins the displayed value; the loser stays as `disputed` with its source link, never silently overwritten or deleted. Same-tier conflict: see §1.
 
 ## 3. Text
 
@@ -39,3 +58,15 @@ Anyone can report a wrong claim or infringing file with a source or rights note.
 2. Legal? If no → drop it.
 3. Media licensed + attributed? If no → do not upload.
 4. Higher-tier source disagrees? Keep the loser as `disputed`.
+
+## 7. Seeds
+
+Seeds are per-environment starter records, applied explicitly with
+`task seed` — never via migrations.
+
+- One file per band, with ids derived as `{band}-{kind}-{name-slug}` using the full band slug (`orchid-m-jeff-salane`, `orchid-cs-formed`). A UNIQUE conflict then names the actual duplicate.
+- Plain INSERTs only, so a conflict fails loudly. Never INSERT OR IGNORE (or REPLACE) under foreign keys.
+- NULL is an honest gap: blanks allowed wherever no source clears the bar.
+- Every display value needs a source row or it stays `unconfirmed`. Corrections follow §5.
+- Seeds must verify clean: no orphan edges, no orphan evidence. The check queries, the `task seed` entrypoint, and the `claim_sources` table land with the first seed (Phase 5) — any row returned rejects the seed.
+- `claim_sources.note` is an internal working note for future curators, never rendered.
