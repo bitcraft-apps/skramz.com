@@ -240,7 +240,7 @@ export function registerBands(app: App): void {
     if (Object.keys(patch).length === 0) {
       return c.json({ error: { code: "invalid", message: "Nothing to update" } }, 422);
     }
-    const sets = [...Object.keys(patch).map((k) => `${k} = ?`), "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"];
+    const sets = [...Object.keys(patch).map((k) => `${k} = ?`), `updated_at = ${NOW_SQL}`];
     try {
       await c.env.DB.prepare(`UPDATE bands SET ${sets.join(", ")} WHERE id = ?`)
         .bind(...Object.values(patch), id)

@@ -79,17 +79,17 @@ export async function fetchClaimSources(
     if (!ids.includes(ref.entity_id)) ids.push(ref.entity_id);
     byType.set(ref.entity_type, ids);
   }
-  const out: Record<string, unknown>[] = [];
-  for (const [type, ids] of byType) {
-    if (ids.length === 0) continue;
+  const batches = [...byType].map(([type, ids]) => {
+    if (ids.length === 0) return Promise.resolve([] as Record<string, unknown>[]);
     const placeholders = ids.map(() => "?").join(", ");
-    const rows = await db
+    return db
       .prepare(`SELECT * FROM claim_sources WHERE entity_type = ? AND entity_id IN (${placeholders}) ORDER BY entity_id, field`)
       .bind(type, ...ids)
-      .all<Record<string, unknown>>();
-    out.push(...rows.results);
-  }
-  return out;
+      .all<Record<string, unknown>>()
+      .then((rows) => rows.results);
+  });
+  const groups = await Promise.all(batches);
+  return groups.flat();
 }
 
 export async function touchUpdatedAt(
@@ -104,6 +104,18 @@ export async function touchUpdatedAt(
       .run();
   } catch (err) {
     console.error(`Touch ${table} failed`, err);
+  }
+}
+
+// Refresh owning bands after a child write that can move parents (release or
+// media-link PATCH). Filters non-ids, dedupes, then reuses the best-effort
+// touch so the badge never fails the write.
+export async function touchBands(db: D1Database, ids: readonly unknown[]): Promise<void> {
+  const seen = new Set<string>();
+  for (const id of ids) {
+    if (typeof id !== "string" || !id || seen.has(id)) continue;
+    seen.add(id);
+    await touchUpdatedAt(db, "bands", id);
   }
 }
 

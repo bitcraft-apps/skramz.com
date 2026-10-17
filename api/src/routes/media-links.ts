@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { NOW_SQL, publicWriteError, readBody, requireAuth, touchUpdatedAt } from "../lib/http";
+import { NOW_SQL, publicWriteError, readBody, requireAuth, touchBands, touchUpdatedAt } from "../lib/http";
 import type { D1Database } from "../lib/db";
 
 // A media link belongs to exactly one parent; resolve the owning band so
@@ -115,17 +115,15 @@ export function registerMediaLinks(app: App): void {
     const updated = await c.env.DB.prepare("SELECT * FROM media_links WHERE id = ?")
       .bind(id)
       .first<Record<string, unknown>>();
-    const owners = new Set<string>();
+    const ownerIds: string[] = [];
     for (const pair of [
       [existing.release_id, existing.band_id],
       [updated?.release_id, updated?.band_id],
     ] as const) {
       const owner = await owningBandId(c.env.DB, pair[0], pair[1]);
-      if (owner && !owners.has(owner)) {
-        owners.add(owner);
-        await touchUpdatedAt(c.env.DB, "bands", owner);
-      }
+      if (owner) ownerIds.push(owner);
     }
+    await touchBands(c.env.DB, ownerIds);
     return c.json({ data: updated });
   });
 }

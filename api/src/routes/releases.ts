@@ -1,5 +1,5 @@
 import type { App } from "../lib/http";
-import { NOW_SQL, RELEASE_TYPES, fetchClaimSources, normalizeName, publicWriteError, readBody, requireAuth, touchUpdatedAt } from "../lib/http";
+import { NOW_SQL, RELEASE_TYPES, fetchClaimSources, normalizeName, publicWriteError, readBody, requireAuth, touchBands, touchUpdatedAt } from "../lib/http";
 
 function invalidReleaseType(value: unknown): boolean {
   // releases.release_type is NOT NULL (issue #21); a present value must be in
@@ -117,13 +117,7 @@ export function registerReleases(app: App): void {
       return c.json({ error: { code: pub.code, message: pub.message } }, pub.status);
     }
     const updated = await c.env.DB.prepare("SELECT * FROM releases WHERE id = ?").bind(id).first<Record<string, unknown>>();
-    const touched = new Set<string>();
-    for (const bandId of [existing.band_id, updated?.band_id]) {
-      if (typeof bandId === "string" && !touched.has(bandId)) {
-        touched.add(bandId);
-        await touchUpdatedAt(c.env.DB, "bands", bandId);
-      }
-    }
+    await touchBands(c.env.DB, [existing.band_id, updated?.band_id]);
     return c.json({ data: updated });
   });
 }
