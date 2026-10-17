@@ -94,14 +94,26 @@ Anyone can report a wrong claim or infringing file with a source or rights note.
 ## 7. Seeds
 
 Seeds are per-environment starter records, applied explicitly with
-`task seed` — never via migrations. Conventions:
+`task seed` — never via migrations. Each rule below exists so the seed
+for band #200 is as safe as the first: human-readable SQL that a
+machine re-checks.
 
-- Fixed ids with a per-band prefix (`band-`, `yk-m-`, `oc-`); plain
-  INSERTs only, so a UNIQUE conflict fails loudly and means the record
-  exists — merge by hand, never INSERT OR IGNORE under foreign keys.
+- One file per band, with ids derived as `{band}-{kind}-{name-slug}`
+  (`oc-m-jeff-salane`, `cs-oc-formed`) — never invented opaque ids. A
+  derivable id means a UNIQUE conflict names the actual duplicate
+  (same band, same claim), not a typo to hunt down.
+- Plain INSERTs only, so a conflict fails loudly. Never INSERT OR
+  IGNORE (or REPLACE) under foreign keys: a skipped parent row with
+  inserted children is silent corruption, and at scale nobody will
+  notice it by reading.
 - NULL is an honest gap: blanks allowed wherever no source clears the bar.
 - Every display value needs a source row or it stays `unconfirmed`.
   Corrections follow §5.
+- After applying a seed, run `api/seeds/verify.sql` against the same
+  database: every query in it hunts one corruption (orphan edges,
+  orphan evidence, over-long or pasted-text notes). Any row returned
+  rejects the seed — fix the file, re-apply from a fresh database,
+  never patch around it.
 
 ## 8. Curator notes
 
