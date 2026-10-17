@@ -78,5 +78,5 @@ the first: human-readable SQL that a machine re-checks.
 - Plain INSERTs only, so a conflict fails loudly. Never INSERT OR IGNORE (or REPLACE) under foreign keys: a skipped parent row with inserted children is silent corruption, and at scale nobody will notice it by reading.
 - NULL is an honest gap: blanks allowed wherever no source clears the bar.
 - Every display value needs a source row or it stays `unconfirmed`. Corrections follow §5.
-- After applying a seed, run `api/seeds/verify.sql` against the same database: every query in it hunts one structural corruption (orphan edges, orphan evidence). Any row returned rejects the seed — fix the file, re-apply from a fresh database, never patch around it.
+- Seeds must verify clean: no orphan edges, no orphan evidence. The check queries ship with the first seed (Phase 5) — any row returned rejects the seed: fix the file, re-apply from a fresh database, never patch around it.
 - `claim_sources.note` is an internal working note for future curators, never rendered. Note style rules arrive with Phase 5, when seeds actually carry notes.
