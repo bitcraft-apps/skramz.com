@@ -4,7 +4,7 @@ import { useBand, useMember, useRelease } from "./hooks";
 import { artUrl } from "./media";
 import { usePlayerStore } from "./stores/playerStore";
 
-// Graph loads only with band pages; the player slot never unmounts.
+// Graph loads only with band + graph pages; the player slot never unmounts.
 const GraphView = lazy(() => import("./GraphView"));
 
 function str(record: Record<string, unknown>, key: string): string {
@@ -56,6 +56,17 @@ function ListenList({ links }: { links: Record<string, unknown>[] }) {
   );
 }
 
+export function BandGraphPage() {
+  const { id } = useParams();
+  return (
+    <main aria-label="band graph page" className="w-full">
+      <Suspense fallback={<section aria-label="band graph">loading graph</section>}>
+        <GraphView id={typeof id === "string" ? id : ""} />
+      </Suspense>
+    </main>
+  );
+}
+
 export function BandView() {
   const { id } = useParams();
   const { data, isSuccess } = useBand(id);
@@ -66,9 +77,9 @@ export function BandView() {
     <main>
       <h1>{str(band, "name")}</h1>
       {photo && <img src={photo} alt={`${str(band, "name")} photo`} />}
-      <Suspense fallback={<section aria-label="band graph">loading graph</section>}>
-        <GraphView id={str(band, "id")} />
-      </Suspense>
+      <p>
+        <Link to={`/bands/${str(band, "id")}/graph`}>relationship map →</Link>
+      </p>
       <h2>members</h2>
       <ul>
         {data.members.map((m) => (

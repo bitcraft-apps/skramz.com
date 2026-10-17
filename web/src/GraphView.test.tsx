@@ -14,6 +14,12 @@ vi.mock("react-force-graph-2d", () => ({
   }: {
     graphData: { nodes: { id: string; name: string }[]; links: unknown[] };
     onNodeClick: (node: { id: string }) => void;
+    width?: number;
+    height?: number;
+    nodeLabel?: unknown;
+    nodeCanvasObject?: unknown;
+    linkLabel?: unknown;
+    linkDirectionalArrowLength?: number;
   }) => (
     <div data-testid="force-graph">
       {graphData.nodes.map((n) => (
@@ -76,8 +82,19 @@ describe("GraphView", () => {
     expect(await screen.findByTestId("force-graph")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Band A" })).toBeInTheDocument();
     const list = screen.getByRole("list", { name: "graph connections" });
-    expect(within(list).getByText("a to b via Shared One")).toBeInTheDocument();
-    expect(within(list).getByText("b to c via Shared Two")).toBeInTheDocument();
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Band A to Band B via Shared One");
+    expect(items[1]).toHaveTextContent("Band B to Band C via Shared Two");
+    expect(items[0]).not.toHaveTextContent("a to b");
+    expect(within(items[0]).getByRole("link", { name: "Band A" })).toHaveAttribute(
+      "href",
+      "/bands/a",
+    );
+    expect(within(items[0]).getByRole("link", { name: "Band B" })).toHaveAttribute(
+      "href",
+      "/bands/b",
+    );
     expect(calls[0]).toContain("/api/bands/a/graph?depth=3");
   });
 
@@ -109,6 +126,35 @@ describe("GraphView", () => {
     await screen.findByTestId("force-graph");
     await user.click(screen.getByRole("button", { name: "Band B" }));
     expect(await screen.findByText("band page")).toBeInTheDocument();
+  });
+
+  it("renders the Saetia bridge with band names, never raw ids", async () => {
+    stubGraph({
+      nodes: [
+        { id: "11111111-1111-4111-8111-111111111111", type: "band", name: "Saetia" },
+        { id: "22222222-2222-4222-8222-222222222222", type: "band", name: "Yaphet Kotto" },
+        { id: "33333333-3333-4333-8333-333333333333", type: "band", name: "Steve Roche" },
+      ],
+      edges: [
+        {
+          from: "11111111-1111-4111-8111-111111111111",
+          to: "22222222-2222-4222-8222-222222222222",
+          via: "Steve Roche",
+        },
+      ],
+    });
+    renderView("11111111-1111-4111-8111-111111111111");
+    const list = await screen.findByRole("list", { name: "graph connections" });
+    const item = within(list).getAllByRole("listitem")[0];
+    expect(item).toHaveTextContent("Saetia to Yaphet Kotto via Steve Roche");
+    expect(item.textContent).not.toContain("11111111");
+    expect(item.textContent).not.toContain("22222222");
+    expect(
+      within(item).getByRole("link", { name: "Saetia" }),
+    ).toHaveAttribute("href", "/bands/11111111-1111-4111-8111-111111111111");
+    expect(
+      within(item).getByRole("link", { name: "Yaphet Kotto" }),
+    ).toHaveAttribute("href", "/bands/22222222-2222-4222-8222-222222222222");
   });
 
   it("shows an empty state when fewer than two nodes come back", async () => {
